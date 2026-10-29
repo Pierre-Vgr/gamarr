@@ -36,4 +36,7 @@ export const api = {
 
   scanImport: () => request("/import/scan"),
   importGames: (names) => request("/import", { method: "POST", body: JSON.stringify({ names }) }),
+
+  prowlarrStatus: () => request("/prowlarr/status"),
+  searchReleases: (q) => request(`/prowlarr/search?q=${encodeURIComponent(q)}`),
 };

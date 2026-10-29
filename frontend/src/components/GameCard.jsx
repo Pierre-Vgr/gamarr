@@ -20,7 +20,7 @@ function ProtonBadge({ tier }) {
   );
 }
 
-export function GameCard({ game, onEdit, onDelete, onRefreshed }) {
+export function GameCard({ game, onEdit, onDelete, onRefreshed, onSearchReleases }) {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState(null);
 
@@ -78,6 +78,14 @@ export function GameCard({ game, onEdit, onDelete, onRefreshed }) {
           >
             {refreshing ? "Actualisation..." : "Actualiser les métadonnées"}
           </button>
+          {onSearchReleases && (
+            <button
+              onClick={() => onSearchReleases(game)}
+              className="px-3 py-1.5 rounded bg-slate-700 text-slate-100 text-sm font-medium hover:bg-slate-600"
+            >
+              Chercher une release
+            </button>
+          )}
           {refreshError && <p className="text-red-400 text-xs text-center">{refreshError}</p>}
         </div>
       </div>

@@ -4,6 +4,7 @@ import { GameCard } from "./components/GameCard.jsx";
 import { GameFormModal } from "./components/GameFormModal.jsx";
 import { ImportModal } from "./components/ImportModal.jsx";
 import { DiscoverView } from "./components/DiscoverView.jsx";
+import { ReleaseSearchModal } from "./components/ReleaseSearchModal.jsx";
 import { STATUS_OPTIONS } from "./components/StatusBadge.jsx";
 
 export default function App() {
@@ -16,6 +17,15 @@ export default function App() {
   const [sort, setSort] = useState("title");
   const [modalGame, setModalGame] = useState(undefined); // undefined = closed, null = new, object = edit
   const [showImport, setShowImport] = useState(false);
+  const [releaseSearchGame, setReleaseSearchGame] = useState(null);
+  const [prowlarrConfigured, setProwlarrConfigured] = useState(false);
+
+  useEffect(() => {
+    api
+      .prowlarrStatus()
+      .then((s) => setProwlarrConfigured(s.configured))
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,6 +145,7 @@ export default function App() {
                   onEdit={setModalGame}
                   onDelete={handleDelete}
                   onRefreshed={handleRefreshed}
+                  onSearchReleases={prowlarrConfigured ? setReleaseSearchGame : null}
                 />
               ))}
             </div>
@@ -161,6 +172,10 @@ export default function App() {
             load();
           }}
         />
+      )}
+
+      {releaseSearchGame && (
+        <ReleaseSearchModal game={releaseSearchGame} onClose={() => setReleaseSearchGame(null)} />
       )}
     </div>
   );

@@ -1,17 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
-
-function formatSize(bytes) {
-  if (bytes == null) return "";
-  const units = ["o", "Ko", "Mo", "Go", "To"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toFixed(1)} ${units[unit]}`;
-}
+import { formatSize } from "../utils/format.js";
 
 export function ImportModal({ onClose, onImported }) {
   const [scan, setScan] = useState(null);
