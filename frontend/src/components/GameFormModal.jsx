@@ -2,20 +2,20 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
 import { STATUS_OPTIONS } from "./StatusBadge.jsx";
 
-const EMPTY_FORM = {
-  title: "",
-  platforms: "",
-  status: "backlog",
-  coverUrl: "",
-  description: "",
-  releaseDate: "",
-  genres: "",
-  rating: "",
-  notes: "",
-};
-
-function gameToForm(game) {
-  if (!game) return EMPTY_FORM;
+function gameToForm(game, defaultStatus = "backlog") {
+  if (!game) {
+    return {
+      title: "",
+      platforms: "",
+      status: defaultStatus,
+      coverUrl: "",
+      description: "",
+      releaseDate: "",
+      genres: "",
+      rating: "",
+      notes: "",
+    };
+  }
   return {
     title: game.title || "",
     platforms: (game.platforms || []).join(", "),
@@ -29,18 +29,19 @@ function gameToForm(game) {
   };
 }
 
-export function GameFormModal({ game, onClose, onSaved }) {
-  const [form, setForm] = useState(() => gameToForm(game));
+export function GameFormModal({ game, onClose, onSaved, defaultStatus = "backlog" }) {
+  const [form, setForm] = useState(() => gameToForm(game, defaultStatus));
   const [query, setQuery] = useState(game?.title || "");
   const [providers, setProviders] = useState([]);
-  const [provider, setProvider] = useState("rawg");
+  const [provider, setProvider] = useState(null);
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [appliedResult, setAppliedResult] = useState(null);
 
   useEffect(() => {
-    setForm(gameToForm(game));
+    setForm(gameToForm(game, defaultStatus));
   }, [game]);
 
   useEffect(() => {
@@ -49,9 +50,9 @@ export function GameFormModal({ game, onClose, onSaved }) {
       .then((list) => {
         setProviders(list.filter((p) => p.configured));
         const firstConfigured = list.find((p) => p.configured);
-        if (firstConfigured) setProvider(firstConfigured.id);
+        setProvider(firstConfigured ? firstConfigured.id : "rawg");
       })
-      .catch(() => {});
+      .catch(() => setProvider("rawg"));
   }, []);
 
   function update(field, value) {
@@ -59,7 +60,7 @@ export function GameFormModal({ game, onClose, onSaved }) {
   }
 
   async function handleSearch() {
-    if (!query.trim()) return;
+    if (!query.trim() || !provider) return;
     setSearching(true);
     setError(null);
     try {
@@ -87,6 +88,7 @@ export function GameFormModal({ game, onClose, onSaved }) {
         rating: form.rating,
         notes: form.notes,
       });
+      setAppliedResult({ source: details.source, externalId: details.externalId });
       setResults([]);
     } catch (err) {
       setError(err.message);
@@ -115,11 +117,16 @@ export function GameFormModal({ game, onClose, onSaved }) {
     };
 
     try {
-      if (game) {
-        await api.updateGame(game.id, payload);
-      } else {
-        await api.createGame(payload);
+      const saved = game ? await api.updateGame(game.id, payload) : await api.createGame(payload);
+
+      // Backfille stores/tier Proton pour le résultat choisi manuellement (best-effort,
+      // ne doit pas bloquer la fermeture de la modale si ça échoue).
+      if (appliedResult) {
+        api
+          .refreshMetadata(saved.id, { provider: appliedResult.source, externalId: appliedResult.externalId })
+          .catch(() => {});
       }
+
       onSaved();
     } catch (err) {
       setError(err.message);
@@ -168,7 +175,7 @@ export function GameFormModal({ game, onClose, onSaved }) {
             <button
               type="button"
               onClick={handleSearch}
-              disabled={searching}
+              disabled={searching || !provider}
               className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-medium disabled:opacity-50"
             >
               {searching ? "Recherche..." : "Chercher"}

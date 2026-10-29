@@ -3,7 +3,7 @@ import { api } from "../api/client.js";
 
 export function DiscoverView() {
   const [providers, setProviders] = useState([]);
-  const [provider, setProvider] = useState("rawg");
+  const [provider, setProvider] = useState(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [page, setPage] = useState(1);
@@ -20,12 +20,13 @@ export function DiscoverView() {
       .then((list) => {
         setProviders(list.filter((p) => p.configured));
         const first = list.find((p) => p.configured);
-        if (first) setProvider(first.id);
+        setProvider(first ? first.id : "rawg");
       })
-      .catch(() => {});
+      .catch(() => setProvider("rawg"));
   }, []);
 
   useEffect(() => {
+    if (!provider) return;
     if (!query.trim() && canBrowse) {
       loadBrowse(1);
     } else if (!query.trim()) {
@@ -50,6 +51,7 @@ export function DiscoverView() {
 
   async function handleSearch(e) {
     e.preventDefault();
+    if (!provider) return;
     if (!query.trim()) {
       if (canBrowse) loadBrowse(1);
       return;
@@ -84,7 +86,12 @@ export function DiscoverView() {
       });
       setAdded((prev) => new Set(prev).add(result.externalId));
     } catch (err) {
-      setError(err.message);
+      if (err.status === 409) {
+        // Déjà présent dans la bibliothèque : pas une erreur, juste marquer comme ajouté.
+        setAdded((prev) => new Set(prev).add(result.externalId));
+      } else {
+        setError(err.message);
+      }
     } finally {
       setAdding(null);
     }
@@ -114,7 +121,8 @@ export function DiscoverView() {
         )}
         <button
           type="submit"
-          className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium"
+          disabled={!provider}
+          className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium disabled:opacity-50"
         >
           Chercher
         </button>

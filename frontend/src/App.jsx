@@ -88,14 +88,16 @@ export default function App() {
           <h2 className="text-2xl font-bold">
             {NAV_ITEMS.find((i) => i.id === view)?.label}
           </h2>
-          {view === "library" && (
+          {isGridView && (
             <div className="flex gap-2">
-              <button
-                onClick={() => setShowImport(true)}
-                className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 font-medium"
-              >
-                Importer
-              </button>
+              {view === "library" && (
+                <button
+                  onClick={() => setShowImport(true)}
+                  className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 font-medium"
+                >
+                  Importer
+                </button>
+              )}
               <button
                 onClick={() => setModalGame(null)}
                 className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium"
@@ -172,6 +174,7 @@ export default function App() {
         {modalGame !== undefined && (
           <GameFormModal
             game={modalGame}
+            defaultStatus={view === "wishlist" ? "wishlist" : "backlog"}
             onClose={() => setModalGame(undefined)}
             onSaved={() => {
               setModalGame(undefined);

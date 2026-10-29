@@ -10,14 +10,6 @@ const STATUSES = ["wishlist", "backlog", "playing", "completed", "abandoned"];
 gamesRouter.get("/", (req, res) => {
   const { status, platform, search, sort = "title" } = req.query;
 
-  const sortColumns = {
-    title: "title COLLATE NOCASE ASC",
-    created_at: "created_at DESC",
-    release_date: "release_date DESC",
-    rating: "rating DESC",
-  };
-  const orderBy = sortColumns[sort] || sortColumns.title;
-
   let rows = db.prepare("SELECT * FROM games").all();
 
   if (status) rows = rows.filter((r) => r.status === status);
@@ -52,6 +44,18 @@ gamesRouter.post("/", (req, res) => {
   if (!body.title) return res.status(400).json({ error: "title is required" });
   if (body.status && !STATUSES.includes(body.status)) {
     return res.status(400).json({ error: `status must be one of ${STATUSES.join(", ")}` });
+  }
+
+  if (body.source && body.externalId) {
+    const existing = db
+      .prepare("SELECT id FROM games WHERE source = ? AND external_id = ?")
+      .get(body.source, body.externalId);
+    if (existing) {
+      return res.status(409).json({
+        error: "Ce jeu est déjà dans la bibliothèque",
+        existingId: existing.id,
+      });
+    }
   }
 
   const stmt = db.prepare(`
@@ -117,10 +121,10 @@ gamesRouter.post("/:id/refresh-metadata", async (req, res) => {
   const existing = db.prepare("SELECT * FROM games WHERE id = ?").get(req.params.id);
   if (!existing) return res.status(404).json({ error: "Game not found" });
 
-  const { query, provider } = req.body || {};
+  const { query, provider, externalId } = req.body || {};
 
   try {
-    const updated = await enrichGame(serialize(existing), { query, providerId: provider });
+    const updated = await enrichGame(serialize(existing), { query, providerId: provider, externalId });
     res.json(updated);
   } catch (err) {
     res.status(502).json({ error: err.message });

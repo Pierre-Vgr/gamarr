@@ -117,7 +117,11 @@ export function ImportModal({ onClose, onImported }) {
         )}
 
         <div className="flex justify-end gap-2 pt-4">
-          <button onClick={onClose} className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600">
+          <button
+            onClick={onClose}
+            disabled={importing}
+            className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-50"
+          >
             Fermer
           </button>
           {scan?.exists && scan.entries.length > 0 && (

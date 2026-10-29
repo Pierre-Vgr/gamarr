@@ -12,15 +12,23 @@ const updateMetadata = db.prepare(`
   WHERE id = @id
 `);
 
-async function fetchStoresAndProtonTier(provider, externalId) {
-  if (!provider.getStores) return { stores: [], steamAppId: null, protonTier: null };
+async function fetchStoresAndProtonTier(provider, externalId, existingGame) {
+  // Le provider ne fournit pas les stores (ex: IGDB) : on garde les valeurs déjà en base
+  // plutôt que de les écraser avec du vide.
+  const fallback = {
+    stores: existingGame.stores || [],
+    steamAppId: existingGame.steam_app_id || null,
+    protonTier: existingGame.proton_tier || null,
+  };
+
+  if (!provider.getStores) return fallback;
 
   let stores = [];
   try {
     stores = await provider.getStores(externalId);
   } catch (err) {
     console.error(`Failed to fetch stores: ${err.message}`);
-    return { stores: [], steamAppId: null, protonTier: null };
+    return fallback;
   }
 
   const steamAppId = extractSteamAppId(stores);
@@ -36,7 +44,7 @@ async function fetchStoresAndProtonTier(provider, externalId) {
   return { stores, steamAppId, protonTier };
 }
 
-export async function enrichGame(game, { query, providerId } = {}) {
+export async function enrichGame(game, { query, providerId, externalId } = {}) {
   const provider = providerId
     ? { id: providerId, configured: getProvider(providerId).isConfigured() }
     : listProviders().find((p) => p.configured);
@@ -46,15 +54,23 @@ export async function enrichGame(game, { query, providerId } = {}) {
   }
 
   const providerImpl = getProvider(provider.id);
-  const results = await providerImpl.search(query || game.title);
-  if (!results.length) {
-    throw new Error("No match found");
+
+  // Si on connaît déjà l'externalId exact (résultat choisi manuellement), on l'utilise
+  // directement plutôt que de re-chercher par titre, qui pourrait matcher autre chose.
+  let matchedExternalId = externalId;
+  if (!matchedExternalId) {
+    const results = await providerImpl.search(query || game.title);
+    if (!results.length) {
+      throw new Error("No match found");
+    }
+    matchedExternalId = results[0].externalId;
   }
 
-  const details = await providerImpl.getDetails(results[0].externalId);
+  const details = await providerImpl.getDetails(matchedExternalId);
   const { stores, steamAppId, protonTier } = await fetchStoresAndProtonTier(
     providerImpl,
-    results[0].externalId
+    matchedExternalId,
+    game
   );
 
   updateMetadata.run({
