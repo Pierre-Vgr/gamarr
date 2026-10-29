@@ -33,14 +33,20 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_games_title ON games(title);
 `);
 
-const hasImportPath = db
-  .prepare("PRAGMA table_info(games)")
-  .all()
-  .some((col) => col.name === "import_path");
-
-if (!hasImportPath) {
-  db.exec("ALTER TABLE games ADD COLUMN import_path TEXT");
+function addColumnIfMissing(name, definition) {
+  const exists = db
+    .prepare("PRAGMA table_info(games)")
+    .all()
+    .some((col) => col.name === name);
+  if (!exists) {
+    db.exec(`ALTER TABLE games ADD COLUMN ${name} ${definition}`);
+  }
 }
+
+addColumnIfMissing("import_path", "TEXT");
+addColumnIfMissing("stores", "TEXT NOT NULL DEFAULT '[]'");
+addColumnIfMissing("steam_app_id", "TEXT");
+addColumnIfMissing("proton_tier", "TEXT");
 
 db.exec(
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_games_import_path ON games(import_path) WHERE import_path IS NOT NULL"

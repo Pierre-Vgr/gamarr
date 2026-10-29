@@ -54,7 +54,47 @@ export const rawgProvider = {
       genres: (game.genres || []).map((g) => g.name),
     };
   },
+
+  async getStores(externalId) {
+    const [gameStores, storeCatalog] = await Promise.all([fetchGameStores(externalId), fetchStoreCatalog()]);
+
+    return gameStores
+      .map((entry) => {
+        const store = storeCatalog.get(entry.store_id);
+        if (!store) return null;
+        return { name: store.name, slug: store.slug, url: entry.url || null };
+      })
+      .filter(Boolean);
+  },
 };
+
+let storeCatalogCache = null;
+
+async function fetchStoreCatalog() {
+  if (storeCatalogCache) return storeCatalogCache;
+
+  const url = new URL(`${BASE_URL}/stores`);
+  url.searchParams.set("key", apiKey());
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`RAWG store catalog failed: ${res.status}`);
+  const data = await res.json();
+
+  storeCatalogCache = new Map(
+    (data.results || []).map((s) => [s.id, { name: s.name, slug: s.slug }])
+  );
+  return storeCatalogCache;
+}
+
+async function fetchGameStores(externalId) {
+  const url = new URL(`${BASE_URL}/games/${externalId}/stores`);
+  url.searchParams.set("key", apiKey());
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`RAWG stores failed: ${res.status}`);
+  const data = await res.json();
+  return data.results || [];
+}
 
 function stripHtml(html) {
   return html.replace(/<[^>]*>/g, "").trim();
