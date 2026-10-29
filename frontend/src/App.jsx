@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { api } from "./api/client.js";
 import { GameCard } from "./components/GameCard.jsx";
+import { GameDetailModal } from "./components/GameDetailModal.jsx";
 import { GameFormModal } from "./components/GameFormModal.jsx";
 import { ImportModal } from "./components/ImportModal.jsx";
 import { DiscoverView } from "./components/DiscoverView.jsx";
@@ -24,6 +25,7 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState("title");
   const [modalGame, setModalGame] = useState(undefined); // undefined = closed, null = new, object = edit
+  const [detailGame, setDetailGame] = useState(null);
   const [showImport, setShowImport] = useState(false);
   const [releaseSearchGame, setReleaseSearchGame] = useState(null);
   const [prowlarrConfigured, setProwlarrConfigured] = useState(false);
@@ -157,14 +159,7 @@ export default function App() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {games.map((game) => (
-                  <GameCard
-                    key={game.id}
-                    game={game}
-                    onEdit={setModalGame}
-                    onDelete={handleDelete}
-                    onRefreshed={handleRefreshed}
-                    onSearchReleases={prowlarrConfigured ? setReleaseSearchGame : null}
-                  />
+                  <GameCard key={game.id} game={game} onOpen={setDetailGame} />
                 ))}
               </div>
             )}
@@ -195,6 +190,17 @@ export default function App() {
 
         {releaseSearchGame && (
           <ReleaseSearchModal game={releaseSearchGame} onClose={() => setReleaseSearchGame(null)} />
+        )}
+
+        {detailGame && (
+          <GameDetailModal
+            game={detailGame}
+            onClose={() => setDetailGame(null)}
+            onEdit={setModalGame}
+            onDelete={handleDelete}
+            onRefreshed={handleRefreshed}
+            onSearchReleases={prowlarrConfigured ? setReleaseSearchGame : null}
+          />
         )}
       </main>
     </div>
