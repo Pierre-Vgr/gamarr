@@ -4,8 +4,43 @@ import path from "node:path";
 import { db } from "../db/index.js";
 import { serializeGame } from "../models/game.js";
 import { LIBRARY_DIR } from "../config/paths.js";
+import { getProvider, listProviders } from "../services/metadataProviders/index.js";
 
 export const importRouter = Router();
+
+const updateMetadata = db.prepare(`
+  UPDATE games SET
+    cover_url = @cover_url, description = @description, release_date = @release_date,
+    platforms = @platforms, genres = @genres, external_id = @external_id,
+    source = @source, updated_at = datetime('now')
+  WHERE id = @id
+`);
+
+async function enrichGame(game) {
+  const provider = listProviders().find((p) => p.configured);
+  if (!provider) return game;
+
+  try {
+    const results = await getProvider(provider.id).search(game.title);
+    if (!results.length) return game;
+
+    const details = await getProvider(provider.id).getDetails(results[0].externalId);
+    updateMetadata.run({
+      id: game.id,
+      cover_url: details.coverUrl || null,
+      description: details.description || null,
+      release_date: details.releaseDate || null,
+      platforms: JSON.stringify(details.platforms || []),
+      genres: JSON.stringify(details.genres || []),
+      external_id: details.externalId || null,
+      source: "import",
+    });
+    return serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(game.id));
+  } catch (err) {
+    console.error(`Metadata enrichment failed for "${game.title}": ${err.message}`);
+    return game;
+  }
+}
 
 function cleanTitle(name) {
   let title = name.replace(/\.[a-zA-Z0-9]{1,4}$/, "");
@@ -57,7 +92,7 @@ importRouter.get("/scan", (req, res) => {
   res.json({ libraryDir: LIBRARY_DIR, exists: true, entries });
 });
 
-importRouter.post("/", (req, res) => {
+importRouter.post("/", async (req, res) => {
   const { names } = req.body;
   if (!Array.isArray(names) || names.length === 0) {
     return res.status(400).json({ error: "names must be a non-empty array" });
@@ -93,9 +128,8 @@ importRouter.post("/", (req, res) => {
     }
 
     const result = insert.run({ title: cleanTitle(name), import_path: name });
-    created.push(
-      serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(result.lastInsertRowid))
-    );
+    const game = serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(result.lastInsertRowid));
+    created.push(await enrichGame(game));
   }
 
   res.status(201).json({ created, skipped });
