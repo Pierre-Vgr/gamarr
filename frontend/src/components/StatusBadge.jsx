@@ -26,3 +26,6 @@ export const STATUS_OPTIONS = Object.keys(LABELS).map((value) => ({
   value,
   label: LABELS[value],
 }));
+
+// Pour le filtre de la vue Bibliothèque : la wishlist a sa propre vue dédiée.
+export const LIBRARY_STATUS_OPTIONS = STATUS_OPTIONS.filter((opt) => opt.value !== "wishlist");
