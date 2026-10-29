@@ -29,4 +29,7 @@ export const api = {
   searchMetadata: (q, provider = "rawg") =>
     request(`/metadata/search?q=${encodeURIComponent(q)}&provider=${provider}`),
   getMetadataDetails: (provider, externalId) => request(`/metadata/${provider}/${externalId}`),
+
+  scanImport: () => request("/import/scan"),
+  importGames: (names) => request("/import", { method: "POST", body: JSON.stringify({ names }) }),
 };

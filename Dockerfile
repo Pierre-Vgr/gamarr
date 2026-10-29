@@ -16,6 +16,7 @@ COPY --from=frontend-build /app/frontend/dist ./public
 
 ENV NODE_ENV=production \
     DATA_DIR=/data \
+    GAMES_DIR=/games \
     STATIC_DIR=/app/public \
     PORT=3000
 

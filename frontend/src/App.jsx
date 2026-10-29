@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { api } from "./api/client.js";
 import { GameCard } from "./components/GameCard.jsx";
 import { GameFormModal } from "./components/GameFormModal.jsx";
+import { ImportModal } from "./components/ImportModal.jsx";
 import { STATUS_OPTIONS } from "./components/StatusBadge.jsx";
 
 export default function App() {
@@ -12,6 +13,7 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState("title");
   const [modalGame, setModalGame] = useState(undefined); // undefined = closed, null = new, object = edit
+  const [showImport, setShowImport] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -40,12 +42,20 @@ export default function App() {
     <div className="min-h-screen max-w-7xl mx-auto px-4 py-6">
       <header className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-2xl font-bold">🎮 Gamarr</h1>
-        <button
-          onClick={() => setModalGame(null)}
-          className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium"
-        >
-          + Ajouter un jeu
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowImport(true)}
+            className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 font-medium"
+          >
+            Importer
+          </button>
+          <button
+            onClick={() => setModalGame(null)}
+            className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium"
+          >
+            + Ajouter un jeu
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-wrap gap-3 mb-6">
@@ -104,6 +114,16 @@ export default function App() {
           onClose={() => setModalGame(undefined)}
           onSaved={() => {
             setModalGame(undefined);
+            load();
+          }}
+        />
+      )}
+
+      {showImport && (
+        <ImportModal
+          onClose={() => setShowImport(false)}
+          onImported={() => {
+            setShowImport(false);
             load();
           }}
         />

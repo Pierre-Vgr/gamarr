@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import "./db/index.js";
 import { gamesRouter } from "./routes/games.js";
 import { metadataRouter } from "./routes/metadata.js";
+import { importRouter } from "./routes/import.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -17,6 +18,7 @@ app.use(express.json());
 
 app.use("/api/games", gamesRouter);
 app.use("/api/metadata", metadataRouter);
+app.use("/api/import", importRouter);
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
 // En dev, le frontend est servi par son propre serveur Vite (voir docker-compose.dev.yml) ;

@@ -24,6 +24,7 @@ db.exec(`
     notes TEXT,
     source TEXT NOT NULL DEFAULT 'manual',
     external_id TEXT,
+    import_path TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
@@ -31,3 +32,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_games_status ON games(status);
   CREATE INDEX IF NOT EXISTS idx_games_title ON games(title);
 `);
+
+const hasImportPath = db
+  .prepare("PRAGMA table_info(games)")
+  .all()
+  .some((col) => col.name === "import_path");
+
+if (!hasImportPath) {
+  db.exec("ALTER TABLE games ADD COLUMN import_path TEXT");
+}
+
+db.exec(
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_games_import_path ON games(import_path) WHERE import_path IS NOT NULL"
+);

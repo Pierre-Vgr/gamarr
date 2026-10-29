@@ -5,6 +5,7 @@ services:
       - "3000:3000"
     volumes:
       - ./data:/data
+      - ${GAMES_PATH:-./games}:/games:ro
     environment:
       - RAWG_API_KEY=${RAWG_API_KEY:-}
       - IGDB_CLIENT_ID=${IGDB_CLIENT_ID:-}

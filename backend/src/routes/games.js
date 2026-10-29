@@ -1,17 +1,10 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
+import { serializeGame as serialize } from "../models/game.js";
 
 export const gamesRouter = Router();
 
 const STATUSES = ["wishlist", "backlog", "playing", "completed", "abandoned"];
-
-function serialize(row) {
-  return {
-    ...row,
-    platforms: JSON.parse(row.platforms || "[]"),
-    genres: JSON.parse(row.genres || "[]"),
-  };
-}
 
 gamesRouter.get("/", (req, res) => {
   const { status, platform, search, sort = "title" } = req.query;
