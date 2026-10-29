@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "../db/index.js";
 import { serializeGame as serialize } from "../models/game.js";
+import { enrichGame } from "../services/enrich.js";
 
 export const gamesRouter = Router();
 
@@ -110,6 +111,20 @@ gamesRouter.put("/:id", (req, res) => {
 
   const row = db.prepare("SELECT * FROM games WHERE id = ?").get(req.params.id);
   res.json(serialize(row));
+});
+
+gamesRouter.post("/:id/refresh-metadata", async (req, res) => {
+  const existing = db.prepare("SELECT * FROM games WHERE id = ?").get(req.params.id);
+  if (!existing) return res.status(404).json({ error: "Game not found" });
+
+  const { query, provider } = req.body || {};
+
+  try {
+    const updated = await enrichGame(serialize(existing), { query, providerId: provider });
+    res.json(updated);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
 });
 
 gamesRouter.delete("/:id", (req, res) => {

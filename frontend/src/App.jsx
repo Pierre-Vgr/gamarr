@@ -38,6 +38,10 @@ export default function App() {
     load();
   }
 
+  function handleRefreshed(updatedGame) {
+    setGames((prev) => prev.map((g) => (g.id === updatedGame.id ? updatedGame : g)));
+  }
+
   return (
     <div className="min-h-screen max-w-7xl mx-auto px-4 py-6">
       <header className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -103,6 +107,7 @@ export default function App() {
               game={game}
               onEdit={setModalGame}
               onDelete={handleDelete}
+              onRefreshed={handleRefreshed}
             />
           ))}
         </div>

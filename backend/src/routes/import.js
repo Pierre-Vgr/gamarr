@@ -4,38 +4,13 @@ import path from "node:path";
 import { db } from "../db/index.js";
 import { serializeGame } from "../models/game.js";
 import { LIBRARY_DIR } from "../config/paths.js";
-import { getProvider, listProviders } from "../services/metadataProviders/index.js";
+import { enrichGame } from "../services/enrich.js";
 
 export const importRouter = Router();
 
-const updateMetadata = db.prepare(`
-  UPDATE games SET
-    cover_url = @cover_url, description = @description, release_date = @release_date,
-    platforms = @platforms, genres = @genres, external_id = @external_id,
-    source = @source, updated_at = datetime('now')
-  WHERE id = @id
-`);
-
-async function enrichGame(game) {
-  const provider = listProviders().find((p) => p.configured);
-  if (!provider) return game;
-
+async function tryEnrich(game) {
   try {
-    const results = await getProvider(provider.id).search(game.title);
-    if (!results.length) return game;
-
-    const details = await getProvider(provider.id).getDetails(results[0].externalId);
-    updateMetadata.run({
-      id: game.id,
-      cover_url: details.coverUrl || null,
-      description: details.description || null,
-      release_date: details.releaseDate || null,
-      platforms: JSON.stringify(details.platforms || []),
-      genres: JSON.stringify(details.genres || []),
-      external_id: details.externalId || null,
-      source: "import",
-    });
-    return serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(game.id));
+    return await enrichGame(game);
   } catch (err) {
     console.error(`Metadata enrichment failed for "${game.title}": ${err.message}`);
     return game;
@@ -129,7 +104,7 @@ importRouter.post("/", async (req, res) => {
 
     const result = insert.run({ title: cleanTitle(name), import_path: name });
     const game = serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(result.lastInsertRowid));
-    created.push(await enrichGame(game));
+    created.push(await tryEnrich(game));
   }
 
   res.status(201).json({ created, skipped });

@@ -32,6 +32,8 @@ function gameToForm(game) {
 export function GameFormModal({ game, onClose, onSaved }) {
   const [form, setForm] = useState(() => gameToForm(game));
   const [query, setQuery] = useState(game?.title || "");
+  const [providers, setProviders] = useState([]);
+  const [provider, setProvider] = useState("rawg");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -40,6 +42,17 @@ export function GameFormModal({ game, onClose, onSaved }) {
   useEffect(() => {
     setForm(gameToForm(game));
   }, [game]);
+
+  useEffect(() => {
+    api
+      .listProviders()
+      .then((list) => {
+        setProviders(list.filter((p) => p.configured));
+        const firstConfigured = list.find((p) => p.configured);
+        if (firstConfigured) setProvider(firstConfigured.id);
+      })
+      .catch(() => {});
+  }, []);
 
   function update(field, value) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -50,7 +63,7 @@ export function GameFormModal({ game, onClose, onSaved }) {
     setSearching(true);
     setError(null);
     try {
-      const found = await api.searchMetadata(query);
+      const found = await api.searchMetadata(query, provider);
       setResults(found);
     } catch (err) {
       setError(err.message);
@@ -122,50 +135,66 @@ export function GameFormModal({ game, onClose, onSaved }) {
           {game ? "Modifier le jeu" : "Ajouter un jeu"}
         </h2>
 
-        {!game && (
-          <div className="mb-6 p-4 bg-slate-800 rounded-lg">
-            <label className="block text-sm text-slate-300 mb-2">
-              Rechercher les métadonnées (RAWG)
-            </label>
-            <div className="flex gap-2">
-              <input
-                className="flex-1 bg-slate-700 rounded px-3 py-2 text-sm"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSearch())}
-                placeholder="Titre du jeu..."
-              />
-              <button
-                type="button"
-                onClick={handleSearch}
-                disabled={searching}
-                className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-medium disabled:opacity-50"
-              >
-                {searching ? "Recherche..." : "Chercher"}
-              </button>
-            </div>
-            {results.length > 0 && (
-              <ul className="mt-3 space-y-1 max-h-48 overflow-y-auto">
-                {results.map((r) => (
-                  <li key={r.externalId}>
-                    <button
-                      type="button"
-                      onClick={() => applyResult(r)}
-                      className="w-full flex items-center gap-2 p-2 rounded hover:bg-slate-700 text-left text-sm"
-                    >
-                      {r.coverUrl && (
-                        <img src={r.coverUrl} alt="" className="w-8 h-10 object-cover rounded" />
-                      )}
-                      <span>
-                        {r.title} {r.releaseDate ? `(${r.releaseDate.slice(0, 4)})` : ""}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+        <div className="mb-6 p-4 bg-slate-800 rounded-lg">
+          <label className="block text-sm text-slate-300 mb-2">
+            Rechercher les métadonnées{" "}
+            {game && (
+              <span className="text-slate-500">
+                (essaie un autre titre si l'auto-détection s'est trompée)
+              </span>
             )}
+          </label>
+          <div className="flex gap-2">
+            <input
+              className="flex-1 bg-slate-700 rounded px-3 py-2 text-sm"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleSearch())}
+              placeholder="Titre du jeu..."
+            />
+            {providers.length > 1 && (
+              <select
+                className="bg-slate-700 rounded px-2 py-2 text-sm"
+                value={provider}
+                onChange={(e) => setProvider(e.target.value)}
+              >
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.id.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              type="button"
+              onClick={handleSearch}
+              disabled={searching}
+              className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-sm font-medium disabled:opacity-50"
+            >
+              {searching ? "Recherche..." : "Chercher"}
+            </button>
           </div>
-        )}
+          {results.length > 0 && (
+            <ul className="mt-3 space-y-1 max-h-48 overflow-y-auto">
+              {results.map((r) => (
+                <li key={r.externalId}>
+                  <button
+                    type="button"
+                    onClick={() => applyResult(r)}
+                    className="w-full flex items-center gap-2 p-2 rounded hover:bg-slate-700 text-left text-sm"
+                  >
+                    {r.coverUrl && (
+                      <img src={r.coverUrl} alt="" className="w-8 h-10 object-cover rounded" />
+                    )}
+                    <span>
+                      {r.title} {r.releaseDate ? `(${r.releaseDate.slice(0, 4)})` : ""}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

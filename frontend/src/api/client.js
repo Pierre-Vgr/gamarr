@@ -24,6 +24,8 @@ export const api = {
   createGame: (data) => request("/games", { method: "POST", body: JSON.stringify(data) }),
   updateGame: (id, data) => request(`/games/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteGame: (id) => request(`/games/${id}`, { method: "DELETE" }),
+  refreshMetadata: (id, data = {}) =>
+    request(`/games/${id}/refresh-metadata`, { method: "POST", body: JSON.stringify(data) }),
 
   listProviders: () => request("/metadata/providers"),
   searchMetadata: (q, provider = "rawg") =>
