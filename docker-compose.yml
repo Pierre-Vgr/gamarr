@@ -1,0 +1,12 @@
+services:
+  playnux:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data
+    environment:
+      - RAWG_API_KEY=${RAWG_API_KEY:-}
+      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID:-}
+      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET:-}
+    restart: unless-stopped

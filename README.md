@@ -1,0 +1,56 @@
+# Playnux
+
+Gestionnaire de bibliothèque de jeux auto-hébergé, dockerisé, pour organiser des jeux
+**non installés** (wishlist, backlog, suivi de progression) — pensé comme une alternative
+web à Playnite. Mono-utilisateur, sans authentification, pensé pour un usage sur réseau local.
+
+## Fonctionnalités
+
+- Ajout manuel de jeux ou recherche automatique des métadonnées (cover, description,
+  date de sortie, genres, plateformes) via [RAWG](https://rawg.io/apidocs).
+- Support optionnel d'[IGDB](https://api-docs.igdb.com/) comme source alternative.
+- Statuts : envie, à jouer, en cours, terminé, abandonné.
+- Recherche, filtre par statut/plateforme, tri par titre / date d'ajout / date de sortie / note.
+- Notes personnelles et note sur 5.
+- Stockage SQLite persistant via un volume Docker.
+
+## Démarrage rapide
+
+```bash
+cp .env.example .env
+# renseigner RAWG_API_KEY (clé gratuite sur https://rawg.io/apidocs)
+
+docker compose up --build
+# ou : podman compose up --build
+```
+
+L'application est accessible sur http://localhost:3000.
+
+## Configuration
+
+| Variable | Description | Obligatoire |
+|---|---|---|
+| `RAWG_API_KEY` | Clé API RAWG pour la recherche de métadonnées | Recommandé |
+| `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | Identifiants d'une app Twitch Developer pour activer IGDB | Optionnel |
+
+Sans ces clés, l'ajout manuel de jeux reste pleinement fonctionnel ; seule la recherche
+automatique de métadonnées est désactivée.
+
+## Développement local
+
+```bash
+# Backend
+cd backend && npm install && npm run dev
+
+# Frontend (dans un autre terminal, proxy vers le backend sur :3000)
+cd frontend && npm install && npm run dev
+```
+
+## Architecture
+
+- `backend/` — API Express + SQLite (better-sqlite3), sert aussi le build du frontend en
+  production (mono-container).
+- `frontend/` — React + Vite + Tailwind.
+- Un seul `Dockerfile` multi-stage : build du frontend puis image finale avec le backend
+  qui sert l'API (`/api/*`) et les fichiers statiques du frontend.
+- Les données persistent dans `/data/playnux.db` (volume Docker, voir `docker-compose.yml`).
