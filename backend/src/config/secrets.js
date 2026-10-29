@@ -14,8 +14,6 @@ function loadSecrets() {
   }
 }
 
-const secrets = loadSecrets();
-
 export function getSecret(key) {
-  return secrets[key] || process.env[key] || "";
+  return loadSecrets()[key] || process.env[key] || "";
 }
