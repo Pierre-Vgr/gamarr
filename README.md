@@ -1,4 +1,4 @@
-# Playnux
+# Gamarr
 
 Gestionnaire de bibliothèque de jeux auto-hébergé, dockerisé, pour organiser des jeux
 **non installés** (wishlist, backlog, suivi de progression) — pensé comme une alternative
@@ -38,13 +38,16 @@ automatique de métadonnées est désactivée.
 
 ## Développement local
 
-```bash
-# Backend
-cd backend && npm install && npm run dev
+Pour itérer sans rebuild d'image à chaque changement :
 
-# Frontend (dans un autre terminal, proxy vers le backend sur :3000)
-cd frontend && npm install && npm run dev
+```bash
+docker compose -f docker-compose.dev.yml up
+# ou : podman compose -f docker-compose.dev.yml up
 ```
+
+Backend sur http://localhost:3000 (redémarre auto sur les changements), frontend sur
+http://localhost:5173 (hot-reload Vite, proxy `/api` vers le backend). C'est le port
+**5173** qu'il faut ouvrir en dev.
 
 ## Architecture
 
@@ -53,4 +56,4 @@ cd frontend && npm install && npm run dev
 - `frontend/` — React + Vite + Tailwind.
 - Un seul `Dockerfile` multi-stage : build du frontend puis image finale avec le backend
   qui sert l'API (`/api/*`) et les fichiers statiques du frontend.
-- Les données persistent dans `/data/playnux.db` (volume Docker, voir `docker-compose.yml`).
+- Les données persistent dans `/data/gamarr.db` (volume Docker, voir `docker-compose.yml`).

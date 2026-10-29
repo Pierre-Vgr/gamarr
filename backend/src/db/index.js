@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const DATA_DIR = process.env.DATA_DIR || "/data";
-const DB_PATH = path.join(DATA_DIR, "playnux.db");
+const DB_PATH = path.join(DATA_DIR, "gamarr.db");
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 

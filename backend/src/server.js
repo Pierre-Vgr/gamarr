@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import path from "node:path";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import "./db/index.js";
 import { gamesRouter } from "./routes/games.js";
@@ -18,11 +19,15 @@ app.use("/api/games", gamesRouter);
 app.use("/api/metadata", metadataRouter);
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-app.use(express.static(STATIC_DIR));
-app.get(/^\/(?!api).*/, (req, res) => {
-  res.sendFile(path.join(STATIC_DIR, "index.html"));
-});
+// En dev, le frontend est servi par son propre serveur Vite (voir docker-compose.dev.yml) ;
+// ce dossier n'existe alors pas et on ne sert que l'API.
+if (fs.existsSync(STATIC_DIR)) {
+  app.use(express.static(STATIC_DIR));
+  app.get(/^\/(?!api).*/, (req, res) => {
+    res.sendFile(path.join(STATIC_DIR, "index.html"));
+  });
+}
 
 app.listen(PORT, () => {
-  console.log(`Playnux backend listening on port ${PORT}`);
+  console.log(`Gamarr backend listening on port ${PORT}`);
 });

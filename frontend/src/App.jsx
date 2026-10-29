@@ -39,7 +39,7 @@ export default function App() {
   return (
     <div className="min-h-screen max-w-7xl mx-auto px-4 py-6">
       <header className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold">🎮 Playnux</h1>
+        <h1 className="text-2xl font-bold">🎮 Gamarr</h1>
         <button
           onClick={() => setModalGame(null)}
           className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium"
