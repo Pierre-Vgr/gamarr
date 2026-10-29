@@ -53,12 +53,12 @@ export function ImportModal({ onClose, onImported }) {
     );
   }
 
-  async function handleImport() {
-    if (selected.size === 0) return;
+  async function handleImport(names) {
+    if (names.length === 0) return;
     setImporting(true);
     setError(null);
     try {
-      await api.importGames(Array.from(selected));
+      await api.importGames(names);
       onImported();
     } catch (err) {
       setError(err.message);
@@ -121,18 +121,33 @@ export function ImportModal({ onClose, onImported }) {
 
         {error && scan && <p className="text-red-400 text-sm mt-2">{error}</p>}
 
+        {importing && (
+          <p className="text-slate-400 text-sm mt-2">
+            Import et récupération des métadonnées en cours, ça peut prendre un moment...
+          </p>
+        )}
+
         <div className="flex justify-end gap-2 pt-4">
           <button onClick={onClose} className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600">
             Fermer
           </button>
           {scan?.exists && scan.entries.length > 0 && (
-            <button
-              onClick={handleImport}
-              disabled={importing || selected.size === 0}
-              className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium disabled:opacity-50"
-            >
-              {importing ? "Import..." : `Importer (${selected.size})`}
-            </button>
+            <>
+              <button
+                onClick={() => handleImport(scan.entries.map((e) => e.name))}
+                disabled={importing}
+                className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 font-medium disabled:opacity-50"
+              >
+                {importing ? "Import..." : `Tout importer (${scan.entries.length})`}
+              </button>
+              <button
+                onClick={() => handleImport(Array.from(selected))}
+                disabled={importing || selected.size === 0}
+                className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium disabled:opacity-50"
+              >
+                {importing ? "Import..." : `Importer la sélection (${selected.size})`}
+              </button>
+            </>
           )}
         </div>
       </div>
