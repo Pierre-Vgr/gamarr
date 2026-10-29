@@ -1,10 +1,8 @@
 node_modules
 frontend/dist
-data/
-games/
+/config/
+/library/
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
-.env
-secrets.json

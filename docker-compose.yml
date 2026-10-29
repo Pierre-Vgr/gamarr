@@ -4,7 +4,6 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/data
-      - ${GAMES_PATH:-./games}:/games:ro
-      - ./secrets.json:/run/secrets/gamarr-secrets.json:ro
+      - ./config:/config
+      - ./library:/library:ro
     restart: unless-stopped

@@ -1,6 +1,8 @@
 import fs from "node:fs";
+import path from "node:path";
+import { CONFIG_DIR } from "./paths.js";
 
-const SECRETS_FILE = process.env.SECRETS_FILE || "/run/secrets/gamarr-secrets.json";
+const SECRETS_FILE = path.join(CONFIG_DIR, "secrets.json");
 
 function loadSecrets() {
   if (!fs.existsSync(SECRETS_FILE)) return {};

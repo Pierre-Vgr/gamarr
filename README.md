@@ -18,13 +18,14 @@ web à Playnite. Mono-utilisateur, sans authentification, pensé pour un usage s
 
 ## Démarrage rapide
 
+L'app ne se configure qu'avec deux volumes, aucune variable d'environnement n'est requise.
+
 ```bash
-cp .env.example .env
-# renseigner GAMES_PATH (dossier contenant tes jeux non installés)
+mkdir -p config library
+cp secrets.json.example config/secrets.json
+# renseigner RAWG_API_KEY dans config/secrets.json (clé gratuite sur https://rawg.io/apidocs)
 
-cp secrets.json.example secrets.json
-# renseigner RAWG_API_KEY (clé gratuite sur https://rawg.io/apidocs)
-
+# édite docker-compose.yml pour faire pointer ./library vers ton dossier de jeux non installés
 docker compose up --build
 # ou : podman compose up --build
 ```
@@ -33,26 +34,31 @@ L'application est accessible sur http://localhost:3000.
 
 ## Configuration
 
-| Variable (`.env`) | Description | Obligatoire |
+Deux volumes, et rien d'autre :
+
+| Volume | Monté sur | Contenu |
 |---|---|---|
-| `GAMES_PATH` | Chemin hôte vers le dossier de jeux non installés, monté en lecture seule sur `/games` | Pour l'import |
+| `./config` | `/config` | Base SQLite (`gamarr.db`) et `secrets.json` (clés API). |
+| `./library` | `/library` (lecture seule) | Le dossier contenant tes jeux non installés, scanné par l'import. |
 
-Les clés API ne passent pas par `.env` mais par un fichier **`secrets.json`** (copié depuis
-`secrets.json.example`), monté en lecture seule dans le conteneur sur
-`/run/secrets/gamarr-secrets.json`. Il est exclu de git par `.gitignore` — ne le commite jamais.
+Édite directement les chemins hôtes dans `docker-compose.yml` (par défaut `./config` et
+`./library`, relatifs au dépôt) pour les faire pointer où tu veux.
 
-| Clé (`secrets.json`) | Description | Obligatoire |
+### Secrets (`config/secrets.json`)
+
+Copié depuis `secrets.json.example`, exclu de git par `.gitignore` — ne le commite jamais.
+
+| Clé | Description | Obligatoire |
 |---|---|---|
 | `RAWG_API_KEY` | Clé API RAWG pour la recherche de métadonnées | Recommandé |
 | `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | Identifiants d'une app Twitch Developer pour activer IGDB | Optionnel |
 
 Sans clé API, l'ajout manuel de jeux reste pleinement fonctionnel ; seule la recherche
-automatique de métadonnées est désactivée. Le fichier doit exister (même avec des valeurs
-vides) avant de lancer `docker compose up`, sinon Docker crée un dossier vide à sa place.
+automatique de métadonnées est désactivée.
 
 ### Import depuis un dossier
 
-Le bouton "Importer" scanne le contenu de `GAMES_DIR` (un niveau, pas récursif) et affiche
+Le bouton "Importer" scanne le contenu de `/library` (un niveau, pas récursif) et affiche
 les dossiers/fichiers pas encore importés. Sélectionne ceux à ajouter : une entrée est créée
 par élément, avec un titre déduit du nom (extension et tags entre crochets/parenthèses
 retirés). Tu peux ensuite enrichir chaque entrée via la recherche de métadonnées, comme pour
@@ -74,10 +80,8 @@ http://localhost:5173 (hot-reload Vite, proxy `/api` vers le backend). C'est le 
 ## Architecture
 
 - `backend/` — API Express + SQLite (better-sqlite3), sert aussi le build du frontend en
-  production (mono-container).
+  production (mono-container). Les chemins `/config` et `/library` sont fixes dans le code
+  (`backend/src/config/paths.js`) : seuls les volumes Docker varient.
 - `frontend/` — React + Vite + Tailwind.
 - Un seul `Dockerfile` multi-stage : build du frontend puis image finale avec le backend
   qui sert l'API (`/api/*`) et les fichiers statiques du frontend.
-- Les données persistent dans `/data/gamarr.db` (volume Docker, voir `docker-compose.yml`).
-- `GAMES_PATH` (hôte) est monté en lecture seule sur `/games` : c'est ce dossier que
-  l'import scanne.

@@ -78,12 +78,12 @@ export function ImportModal({ onClose, onImported }) {
           <p className="text-red-400 text-sm">{error}</p>
         ) : !scan.exists ? (
           <p className="text-amber-400 text-sm">
-            Dossier "{scan.gamesDir}" introuvable. Vérifie que `GAMES_PATH` est bien défini et
-            monté sur /games dans docker-compose.yml.
+            Dossier "{scan.libraryDir}" introuvable. Vérifie qu'un dossier est bien monté sur
+            /library dans docker-compose.yml.
           </p>
         ) : scan.entries.length === 0 ? (
           <p className="text-slate-400">
-            Aucun nouvel élément trouvé dans "{scan.gamesDir}" (tout est déjà importé, ou le
+            Aucun nouvel élément trouvé dans "{scan.libraryDir}" (tout est déjà importé, ou le
             dossier est vide).
           </p>
         ) : (

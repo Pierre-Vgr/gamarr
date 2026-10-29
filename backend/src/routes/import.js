@@ -3,10 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { db } from "../db/index.js";
 import { serializeGame } from "../models/game.js";
+import { LIBRARY_DIR } from "../config/paths.js";
 
 export const importRouter = Router();
-
-const GAMES_DIR = process.env.GAMES_DIR || "/games";
 
 function cleanTitle(name) {
   let title = name.replace(/\.[a-zA-Z0-9]{1,4}$/, "");
@@ -26,14 +25,14 @@ function alreadyImported() {
 }
 
 importRouter.get("/scan", (req, res) => {
-  if (!fs.existsSync(GAMES_DIR)) {
-    return res.json({ gamesDir: GAMES_DIR, exists: false, entries: [] });
+  if (!fs.existsSync(LIBRARY_DIR)) {
+    return res.json({ libraryDir: LIBRARY_DIR, exists: false, entries: [] });
   }
 
   const imported = alreadyImported();
 
   const entries = fs
-    .readdirSync(GAMES_DIR, { withFileTypes: true })
+    .readdirSync(LIBRARY_DIR, { withFileTypes: true })
     .filter((entry) => !entry.name.startsWith("."))
     .filter((entry) => !imported.has(entry.name))
     .map((entry) => {
@@ -41,7 +40,7 @@ importRouter.get("/scan", (req, res) => {
       let sizeBytes = null;
       if (!isDirectory) {
         try {
-          sizeBytes = fs.statSync(path.join(GAMES_DIR, entry.name)).size;
+          sizeBytes = fs.statSync(path.join(LIBRARY_DIR, entry.name)).size;
         } catch {
           sizeBytes = null;
         }
@@ -55,7 +54,7 @@ importRouter.get("/scan", (req, res) => {
     })
     .sort((a, b) => a.title.localeCompare(b.title));
 
-  res.json({ gamesDir: GAMES_DIR, exists: true, entries });
+  res.json({ libraryDir: LIBRARY_DIR, exists: true, entries });
 });
 
 importRouter.post("/", (req, res) => {
@@ -64,11 +63,11 @@ importRouter.post("/", (req, res) => {
     return res.status(400).json({ error: "names must be a non-empty array" });
   }
 
-  if (!fs.existsSync(GAMES_DIR)) {
-    return res.status(400).json({ error: "gamesDir is not accessible" });
+  if (!fs.existsSync(LIBRARY_DIR)) {
+    return res.status(400).json({ error: "libraryDir is not accessible" });
   }
 
-  const onDisk = new Set(fs.readdirSync(GAMES_DIR));
+  const onDisk = new Set(fs.readdirSync(LIBRARY_DIR));
   const imported = alreadyImported();
 
   const insert = db.prepare(`
@@ -85,7 +84,7 @@ importRouter.post("/", (req, res) => {
       continue;
     }
     if (!onDisk.has(name)) {
-      skipped.push({ name, reason: "not found in gamesDir" });
+      skipped.push({ name, reason: "not found in libraryDir" });
       continue;
     }
     if (imported.has(name)) {

@@ -1,11 +1,11 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import { CONFIG_DIR } from "../config/paths.js";
 
-const DATA_DIR = process.env.DATA_DIR || "/data";
-const DB_PATH = path.join(DATA_DIR, "gamarr.db");
+const DB_PATH = path.join(CONFIG_DIR, "gamarr.db");
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
+fs.mkdirSync(CONFIG_DIR, { recursive: true });
 
 export const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
