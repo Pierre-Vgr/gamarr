@@ -17,3 +17,14 @@ function loadSecrets() {
 export function getSecret(key) {
   return loadSecrets()[key] || process.env[key] || "";
 }
+
+export function getAllSecrets() {
+  return loadSecrets();
+}
+
+export function updateSecrets(partial) {
+  const updated = { ...loadSecrets(), ...partial };
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  fs.writeFileSync(SECRETS_FILE, JSON.stringify(updated, null, 2));
+  return updated;
+}

@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
 
-function StatusRow({ name, configured, hint }) {
+function StatusRow({ name, configured }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-slate-800">
-      <div>
-        <p className="font-medium">{name}</p>
-        {hint && <p className="text-xs text-slate-500">{hint}</p>}
-      </div>
+    <div className="flex items-center justify-between py-2">
+      <p className="font-medium text-sm">{name}</p>
       <span
         className={`px-2 py-0.5 rounded text-xs font-medium ${
           configured ? "bg-emerald-900 text-emerald-200" : "bg-slate-700 text-slate-400"
@@ -19,19 +16,101 @@ function StatusRow({ name, configured, hint }) {
   );
 }
 
+function TestResultBadge({ result }) {
+  if (!result) return null;
+  if (result === "loading") return <span className="text-xs text-slate-400">Test en cours...</span>;
+  return (
+    <span className={`text-xs ${result.valid ? "text-emerald-400" : "text-red-400"}`}>
+      {result.valid ? "✓ Valide" : `✗ ${result.message || "Invalide"}`}
+    </span>
+  );
+}
+
+const SECTIONS = [
+  {
+    id: "rawg",
+    title: "RAWG",
+    fields: [{ key: "RAWG_API_KEY", label: "Clé API", type: "password" }],
+  },
+  {
+    id: "igdb",
+    title: "IGDB",
+    fields: [
+      { key: "IGDB_CLIENT_ID", label: "Client ID", type: "text" },
+      { key: "IGDB_CLIENT_SECRET", label: "Client Secret", type: "password" },
+    ],
+  },
+  {
+    id: "prowlarr",
+    title: "Prowlarr",
+    fields: [
+      { key: "PROWLARR_URL", label: "URL", type: "text", placeholder: "https://..." },
+      { key: "PROWLARR_API_KEY", label: "Clé API", type: "password" },
+    ],
+  },
+];
+
 export function SettingsView() {
+  const [form, setForm] = useState(null);
   const [providers, setProviders] = useState([]);
   const [prowlarr, setProwlarr] = useState(null);
   const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState(false);
+  const [testResults, setTestResults] = useState({});
+
+  async function loadStatus() {
+    try {
+      const [p, pr] = await Promise.all([api.listProviders(), api.prowlarrStatus()]);
+      setProviders(p);
+      setProwlarr(pr);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
 
   useEffect(() => {
-    Promise.all([api.listProviders(), api.prowlarrStatus()])
-      .then(([p, pr]) => {
-        setProviders(p);
-        setProwlarr(pr);
-      })
-      .catch((err) => setError(err.message));
+    api.getSettings().then(setForm).catch((err) => setError(err.message));
+    loadStatus();
   }, []);
+
+  function update(key, value) {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleTest(sectionId) {
+    setTestResults((prev) => ({ ...prev, [sectionId]: "loading" }));
+    try {
+      let result;
+      if (sectionId === "rawg") {
+        result = await api.testRawg(form.RAWG_API_KEY);
+      } else if (sectionId === "igdb") {
+        result = await api.testIgdb(form.IGDB_CLIENT_ID, form.IGDB_CLIENT_SECRET);
+      } else {
+        result = await api.testProwlarr(form.PROWLARR_URL, form.PROWLARR_API_KEY);
+      }
+      setTestResults((prev) => ({ ...prev, [sectionId]: result }));
+    } catch (err) {
+      setTestResults((prev) => ({ ...prev, [sectionId]: { valid: false, message: err.message } }));
+    }
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    setSavedMsg(false);
+    try {
+      const updated = await api.updateSettings(form);
+      setForm(updated);
+      setSavedMsg(true);
+      await loadStatus();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="max-w-xl">
@@ -39,17 +118,64 @@ export function SettingsView() {
 
       {error && <p className="text-red-400 mb-4">{error}</p>}
 
-      <div className="bg-slate-900 rounded-lg p-4">
+      <div className="bg-slate-900 rounded-lg p-4 mb-6 divide-y divide-slate-800">
         {providers.map((p) => (
           <StatusRow key={p.id} name={p.id.toUpperCase()} configured={p.configured} />
         ))}
         {prowlarr && <StatusRow name="Prowlarr" configured={prowlarr.configured} />}
       </div>
 
-      <p className="text-sm text-slate-500 mt-4">
-        Ces intégrations se configurent en éditant <code className="text-slate-400">config/secrets.json</code>{" "}
-        (volume <code className="text-slate-400">/config</code>) — les clés y sont relues à chaud, sans
-        redémarrage. Voir <code className="text-slate-400">secrets.json.example</code> pour le format attendu.
+      {!form ? (
+        <p className="text-slate-400">Chargement...</p>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {SECTIONS.map((section) => (
+            <div key={section.id} className="bg-slate-900 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">{section.title}</h3>
+                <div className="flex items-center gap-2">
+                  <TestResultBadge result={testResults[section.id]} />
+                  <button
+                    type="button"
+                    onClick={() => handleTest(section.id)}
+                    disabled={testResults[section.id] === "loading"}
+                    className="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium disabled:opacity-50"
+                  >
+                    Tester
+                  </button>
+                </div>
+              </div>
+              {section.fields.map((field) => (
+                <div key={field.key}>
+                  <label className="block text-sm text-slate-300 mb-1">{field.label}</label>
+                  <input
+                    type={field.type}
+                    className="w-full bg-slate-800 rounded px-3 py-2"
+                    value={form[field.key] || ""}
+                    onChange={(e) => update(field.key, e.target.value)}
+                    placeholder={field.placeholder}
+                  />
+                </div>
+              ))}
+            </div>
+          ))}
+
+          {savedMsg && <p className="text-emerald-400 text-sm">Réglages enregistrés.</p>}
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium disabled:opacity-50"
+          >
+            {saving ? "Enregistrement..." : "Enregistrer"}
+          </button>
+        </form>
+      )}
+
+      <p className="text-sm text-slate-500 mt-6">
+        Ces valeurs sont stockées dans <code className="text-slate-400">config/secrets.json</code>{" "}
+        (volume <code className="text-slate-400">/config</code>), prises en compte immédiatement sans
+        redémarrage. "Tester" vérifie les valeurs saisies ci-dessus, même avant d'enregistrer.
       </p>
     </div>
   );

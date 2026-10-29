@@ -40,3 +40,21 @@ export async function searchReleases(query) {
     infoUrl: r.infoUrl || null,
   }));
 }
+
+export async function testProwlarrConnection(url, apiKey) {
+  let statusUrl;
+  try {
+    statusUrl = new URL(`${url.replace(/\/$/, "")}/api/v1/system/status`);
+  } catch {
+    return { valid: false, message: "URL invalide" };
+  }
+
+  try {
+    const res = await fetch(statusUrl, { headers: { "X-Api-Key": apiKey } });
+    if (res.ok) return { valid: true };
+    if (res.status === 401) return { valid: false, message: "Clé API invalide" };
+    return { valid: false, message: `Erreur Prowlarr (${res.status})` };
+  } catch (err) {
+    return { valid: false, message: `Connexion impossible : ${err.message}` };
+  }
+}

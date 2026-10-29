@@ -124,3 +124,14 @@ async function fetchGameStores(externalId) {
 function stripHtml(html) {
   return html.replace(/<[^>]*>/g, "").trim();
 }
+
+export async function testRawgKey(key) {
+  const url = new URL(`${BASE_URL}/games`);
+  url.searchParams.set("key", key);
+  url.searchParams.set("page_size", "1");
+
+  const res = await fetch(url);
+  if (res.ok) return { valid: true };
+  if (res.status === 401 || res.status === 403) return { valid: false, message: "Clé invalide" };
+  return { valid: false, message: `Erreur RAWG (${res.status})` };
+}

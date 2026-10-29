@@ -39,4 +39,19 @@ export const api = {
 
   prowlarrStatus: () => request("/prowlarr/status"),
   searchReleases: (q) => request(`/prowlarr/search?q=${encodeURIComponent(q)}`),
+
+  getSettings: () => request("/settings"),
+  updateSettings: (data) => request("/settings", { method: "PUT", body: JSON.stringify(data) }),
+  testRawg: (apiKey) =>
+    request("/settings/test/rawg", { method: "POST", body: JSON.stringify({ RAWG_API_KEY: apiKey }) }),
+  testIgdb: (clientId, clientSecret) =>
+    request("/settings/test/igdb", {
+      method: "POST",
+      body: JSON.stringify({ IGDB_CLIENT_ID: clientId, IGDB_CLIENT_SECRET: clientSecret }),
+    }),
+  testProwlarr: (url, apiKey) =>
+    request("/settings/test/prowlarr", {
+      method: "POST",
+      body: JSON.stringify({ PROWLARR_URL: url, PROWLARR_API_KEY: apiKey }),
+    }),
 };

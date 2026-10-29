@@ -90,3 +90,17 @@ export const igdbProvider = {
     return mapGame(results[0]);
   },
 };
+
+export async function testIgdbCredentials(clientId, clientSecret) {
+  const url = new URL(TOKEN_URL);
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("client_secret", clientSecret);
+  url.searchParams.set("grant_type", "client_credentials");
+
+  const res = await fetch(url, { method: "POST" });
+  if (res.ok) return { valid: true };
+  if (res.status === 400 || res.status === 403) {
+    return { valid: false, message: "Identifiants invalides" };
+  }
+  return { valid: false, message: `Erreur IGDB (${res.status})` };
+}
