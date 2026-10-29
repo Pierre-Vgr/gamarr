@@ -21,7 +21,9 @@ web à Playnite. Mono-utilisateur, sans authentification, pensé pour un usage s
 ```bash
 cp .env.example .env
 # renseigner GAMES_PATH (dossier contenant tes jeux non installés)
-# et RAWG_API_KEY (clé gratuite sur https://rawg.io/apidocs)
+
+cp secrets.json.example secrets.json
+# renseigner RAWG_API_KEY (clé gratuite sur https://rawg.io/apidocs)
 
 docker compose up --build
 # ou : podman compose up --build
@@ -31,14 +33,22 @@ L'application est accessible sur http://localhost:3000.
 
 ## Configuration
 
-| Variable | Description | Obligatoire |
+| Variable (`.env`) | Description | Obligatoire |
 |---|---|---|
 | `GAMES_PATH` | Chemin hôte vers le dossier de jeux non installés, monté en lecture seule sur `/games` | Pour l'import |
+
+Les clés API ne passent pas par `.env` mais par un fichier **`secrets.json`** (copié depuis
+`secrets.json.example`), monté en lecture seule dans le conteneur sur
+`/run/secrets/gamarr-secrets.json`. Il est exclu de git par `.gitignore` — ne le commite jamais.
+
+| Clé (`secrets.json`) | Description | Obligatoire |
+|---|---|---|
 | `RAWG_API_KEY` | Clé API RAWG pour la recherche de métadonnées | Recommandé |
 | `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | Identifiants d'une app Twitch Developer pour activer IGDB | Optionnel |
 
 Sans clé API, l'ajout manuel de jeux reste pleinement fonctionnel ; seule la recherche
-automatique de métadonnées est désactivée.
+automatique de métadonnées est désactivée. Le fichier doit exister (même avec des valeurs
+vides) avant de lancer `docker compose up`, sinon Docker crée un dossier vide à sa place.
 
 ### Import depuis un dossier
 

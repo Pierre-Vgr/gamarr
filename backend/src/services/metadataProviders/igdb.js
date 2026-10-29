@@ -1,20 +1,24 @@
+import { getSecret } from "../../config/secrets.js";
+
 const TOKEN_URL = "https://id.twitch.tv/oauth2/token";
 const API_URL = "https://api.igdb.com/v4/games";
 
-let cachedToken = null; // { value, expiresAt }
+let cachedToken = null; // { value, expiresAt, clientId }
 
 function isConfigured() {
-  return Boolean(process.env.IGDB_CLIENT_ID && process.env.IGDB_CLIENT_SECRET);
+  return Boolean(getSecret("IGDB_CLIENT_ID") && getSecret("IGDB_CLIENT_SECRET"));
 }
 
 async function getToken() {
-  if (cachedToken && cachedToken.expiresAt > Date.now()) {
+  const clientId = getSecret("IGDB_CLIENT_ID");
+
+  if (cachedToken && cachedToken.clientId === clientId && cachedToken.expiresAt > Date.now()) {
     return cachedToken.value;
   }
 
   const url = new URL(TOKEN_URL);
-  url.searchParams.set("client_id", process.env.IGDB_CLIENT_ID);
-  url.searchParams.set("client_secret", process.env.IGDB_CLIENT_SECRET);
+  url.searchParams.set("client_id", clientId);
+  url.searchParams.set("client_secret", getSecret("IGDB_CLIENT_SECRET"));
   url.searchParams.set("grant_type", "client_credentials");
 
   const res = await fetch(url, { method: "POST" });
@@ -24,6 +28,7 @@ async function getToken() {
   cachedToken = {
     value: data.access_token,
     expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+    clientId,
   };
   return cachedToken.value;
 }
@@ -33,7 +38,7 @@ async function query(body) {
   const res = await fetch(API_URL, {
     method: "POST",
     headers: {
-      "Client-ID": process.env.IGDB_CLIENT_ID,
+      "Client-ID": getSecret("IGDB_CLIENT_ID"),
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
     },

@@ -1,7 +1,9 @@
+import { getSecret } from "../../config/secrets.js";
+
 const BASE_URL = "https://api.rawg.io/api";
 
 function apiKey() {
-  const key = process.env.RAWG_API_KEY;
+  const key = getSecret("RAWG_API_KEY");
   if (!key) throw new Error("RAWG_API_KEY is not configured");
   return key;
 }
@@ -9,7 +11,7 @@ function apiKey() {
 export const rawgProvider = {
   id: "rawg",
   isConfigured() {
-    return Boolean(process.env.RAWG_API_KEY);
+    return Boolean(getSecret("RAWG_API_KEY"));
   },
 
   async search(query) {

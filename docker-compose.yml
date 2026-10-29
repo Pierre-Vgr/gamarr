@@ -6,8 +6,5 @@ services:
     volumes:
       - ./data:/data
       - ${GAMES_PATH:-./games}:/games:ro
-    environment:
-      - RAWG_API_KEY=${RAWG_API_KEY:-}
-      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID:-}
-      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET:-}
+      - ./secrets.json:/run/secrets/gamarr-secrets.json:ro
     restart: unless-stopped

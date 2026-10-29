@@ -8,13 +8,11 @@ services:
       - backend_node_modules:/app/node_modules
       - ./data:/data
       - ${GAMES_PATH:-./games}:/games:ro
+      - ./secrets.json:/run/secrets/gamarr-secrets.json:ro
     environment:
       - DATA_DIR=/data
       - GAMES_DIR=/games
       - PORT=3000
-      - RAWG_API_KEY=${RAWG_API_KEY:-}
-      - IGDB_CLIENT_ID=${IGDB_CLIENT_ID:-}
-      - IGDB_CLIENT_SECRET=${IGDB_CLIENT_SECRET:-}
     ports:
       - "3000:3000"
 
