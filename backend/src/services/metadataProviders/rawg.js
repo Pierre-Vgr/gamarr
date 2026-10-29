@@ -57,6 +57,29 @@ export const rawgProvider = {
     };
   },
 
+  async browse(page = 1) {
+    const url = new URL(`${BASE_URL}/games`);
+    url.searchParams.set("key", apiKey());
+    url.searchParams.set("ordering", "-added");
+    url.searchParams.set("page_size", "20");
+    url.searchParams.set("page", String(page));
+    url.searchParams.set("platforms", "4"); // RAWG platform id 4 = PC
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`RAWG browse failed: ${res.status}`);
+    const data = await res.json();
+
+    return (data.results || []).map((game) => ({
+      source: "rawg",
+      externalId: String(game.id),
+      title: game.name,
+      coverUrl: game.background_image || null,
+      releaseDate: game.released || null,
+      platforms: filterPcPlatforms((game.platforms || []).map((p) => p.platform.name)),
+      genres: (game.genres || []).map((g) => g.name),
+    }));
+  },
+
   async getStores(externalId) {
     const [gameStores, storeCatalog] = await Promise.all([fetchGameStores(externalId), fetchStoreCatalog()]);
 
