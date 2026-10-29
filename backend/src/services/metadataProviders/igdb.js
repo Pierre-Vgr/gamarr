@@ -1,4 +1,5 @@
 import { getSecret } from "../../config/secrets.js";
+import { filterPcPlatforms } from "./platforms.js";
 
 const TOKEN_URL = "https://id.twitch.tv/oauth2/token";
 const API_URL = "https://api.igdb.com/v4/games";
@@ -60,7 +61,7 @@ function mapGame(game) {
     releaseDate: game.first_release_date
       ? new Date(game.first_release_date * 1000).toISOString().slice(0, 10)
       : null,
-    platforms: (game.platforms || []).map((p) => p.name),
+    platforms: filterPcPlatforms((game.platforms || []).map((p) => p.name)),
     genres: (game.genres || []).map((g) => g.name),
   };
 }

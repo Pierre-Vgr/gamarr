@@ -1,6 +1,8 @@
 import { getSecret } from "../../config/secrets.js";
+import { filterPcPlatforms } from "./platforms.js";
 
 const BASE_URL = "https://api.rawg.io/api";
+const EXCLUDED_STORE_SLUGS = new Set(["playstation-store", "xbox-store", "nintendo"]);
 
 function apiKey() {
   const key = getSecret("RAWG_API_KEY");
@@ -30,7 +32,7 @@ export const rawgProvider = {
       title: game.name,
       coverUrl: game.background_image || null,
       releaseDate: game.released || null,
-      platforms: (game.platforms || []).map((p) => p.platform.name),
+      platforms: filterPcPlatforms((game.platforms || []).map((p) => p.platform.name)),
       genres: (game.genres || []).map((g) => g.name),
     }));
   },
@@ -50,7 +52,7 @@ export const rawgProvider = {
       coverUrl: game.background_image || null,
       description: stripHtml(game.description || ""),
       releaseDate: game.released || null,
-      platforms: (game.platforms || []).map((p) => p.platform.name),
+      platforms: filterPcPlatforms((game.platforms || []).map((p) => p.platform.name)),
       genres: (game.genres || []).map((g) => g.name),
     };
   },
@@ -61,7 +63,7 @@ export const rawgProvider = {
     return gameStores
       .map((entry) => {
         const store = storeCatalog.get(entry.store_id);
-        if (!store) return null;
+        if (!store || EXCLUDED_STORE_SLUGS.has(store.slug)) return null;
         return { name: store.name, slug: store.slug, url: entry.url || null };
       })
       .filter(Boolean);
