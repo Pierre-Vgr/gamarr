@@ -42,6 +42,8 @@ export const api = {
 
   prowlarrStatus: () => request("/prowlarr/status"),
   searchReleases: (q) => request(`/prowlarr/search?q=${encodeURIComponent(q)}`),
+  listProwlarrIndexers: (url, apiKey) =>
+    request("/prowlarr/indexers", { method: "POST", body: JSON.stringify({ url, apiKey }) }),
 
   getSettings: () => request("/settings"),
   updateSettings: (data) => request("/settings", { method: "PUT", body: JSON.stringify(data) }),

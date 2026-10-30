@@ -1,4 +1,4 @@
-import { getSecret } from "../config/secrets.js";
+import { getSecret, getAllSecrets } from "../config/secrets.js";
 
 const PC_GAMES_CATEGORY = 4000; // catégorie Torznab/Newznab "PC"
 
@@ -24,6 +24,11 @@ export async function searchReleases(query) {
   url.searchParams.set("type", "search");
   url.searchParams.append("categories", String(PC_GAMES_CATEGORY));
 
+  const indexerIds = getAllSecrets().PROWLARR_INDEXER_IDS;
+  if (Array.isArray(indexerIds)) {
+    for (const id of indexerIds) url.searchParams.append("indexerIds", String(id));
+  }
+
   const res = await fetch(url, { headers: { "X-Api-Key": apiKey() } });
   if (!res.ok) throw new Error(`Prowlarr search failed: ${res.status}`);
   const data = await res.json();
@@ -38,6 +43,21 @@ export async function searchReleases(query) {
     publishDate: r.publishDate || null,
     downloadUrl: r.downloadUrl || r.magnetUrl || null,
     infoUrl: r.infoUrl || null,
+  }));
+}
+
+export async function listIndexers(url, apiKeyValue) {
+  const indexersUrl = new URL(`${url.replace(/\/$/, "")}/api/v1/indexer`);
+
+  const res = await fetch(indexersUrl, { headers: { "X-Api-Key": apiKeyValue } });
+  if (!res.ok) throw new Error(`Prowlarr indexers failed: ${res.status}`);
+  const data = await res.json();
+
+  return data.map((i) => ({
+    id: i.id,
+    name: i.name,
+    enabled: i.enable,
+    protocol: i.protocol,
   }));
 }
 

@@ -1,10 +1,23 @@
 import { Router } from "express";
-import { isConfigured, searchReleases } from "../services/prowlarr.js";
+import { isConfigured, searchReleases, listIndexers } from "../services/prowlarr.js";
 
 export const prowlarrRouter = Router();
 
 prowlarrRouter.get("/status", (req, res) => {
   res.json({ configured: isConfigured() });
+});
+
+prowlarrRouter.post("/indexers", async (req, res) => {
+  const { url, apiKey } = req.body || {};
+  if (!url || !apiKey) {
+    return res.status(400).json({ error: "URL et clé API requis" });
+  }
+
+  try {
+    res.json(await listIndexers(url, apiKey));
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
 });
 
 prowlarrRouter.get("/search", async (req, res) => {

@@ -12,12 +12,17 @@ const EDITABLE_FIELDS = [
   "IGDB_CLIENT_SECRET",
   "PROWLARR_URL",
   "PROWLARR_API_KEY",
+  "PROWLARR_INDEXER_IDS",
 ];
 
 function withDefaults(secrets) {
   const result = {};
   for (const field of EDITABLE_FIELDS) {
-    result[field] = secrets[field] || "";
+    if (field === "PROWLARR_INDEXER_IDS") {
+      result[field] = Array.isArray(secrets[field]) ? secrets[field] : [];
+    } else {
+      result[field] = secrets[field] || "";
+    }
   }
   return result;
 }

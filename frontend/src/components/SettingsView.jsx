@@ -58,6 +58,9 @@ export function SettingsView() {
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
   const [testResults, setTestResults] = useState({});
+  const [indexers, setIndexers] = useState(null);
+  const [loadingIndexers, setLoadingIndexers] = useState(false);
+  const [indexersError, setIndexersError] = useState(null);
 
   async function loadStatus() {
     try {
@@ -93,6 +96,29 @@ export function SettingsView() {
     } catch (err) {
       setTestResults((prev) => ({ ...prev, [sectionId]: { valid: false, message: err.message } }));
     }
+  }
+
+  async function handleLoadIndexers() {
+    setLoadingIndexers(true);
+    setIndexersError(null);
+    try {
+      const list = await api.listProwlarrIndexers(form.PROWLARR_URL, form.PROWLARR_API_KEY);
+      setIndexers(list);
+    } catch (err) {
+      setIndexersError(err.message);
+    } finally {
+      setLoadingIndexers(false);
+    }
+  }
+
+  function toggleIndexer(id) {
+    setForm((prev) => {
+      const current = prev.PROWLARR_INDEXER_IDS || [];
+      const next = current.includes(id)
+        ? current.filter((i) => i !== id)
+        : [...current, id];
+      return { ...prev, PROWLARR_INDEXER_IDS: next };
+    });
   }
 
   async function handleSubmit(e) {
@@ -157,6 +183,51 @@ export function SettingsView() {
                   />
                 </div>
               ))}
+
+              {section.id === "prowlarr" && (
+                <div className="pt-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm text-slate-300">Trackers à utiliser</label>
+                    <button
+                      type="button"
+                      onClick={handleLoadIndexers}
+                      disabled={loadingIndexers || !form.PROWLARR_URL || !form.PROWLARR_API_KEY}
+                      className="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium disabled:opacity-50"
+                    >
+                      {loadingIndexers ? "Chargement..." : "Charger les trackers"}
+                    </button>
+                  </div>
+
+                  {indexersError && <p className="text-red-400 text-xs mb-2">{indexersError}</p>}
+
+                  {indexers && (
+                    <ul className="space-y-1 max-h-48 overflow-y-auto bg-slate-800 rounded p-2">
+                      {indexers.length === 0 ? (
+                        <li className="text-xs text-slate-500 p-1">Aucun tracker configuré sur cette instance.</li>
+                      ) : (
+                        indexers.map((idx) => (
+                          <li key={idx.id}>
+                            <label className="flex items-center gap-2 p-1 rounded hover:bg-slate-700 cursor-pointer text-sm">
+                              <input
+                                type="checkbox"
+                                checked={(form.PROWLARR_INDEXER_IDS || []).includes(idx.id)}
+                                onChange={() => toggleIndexer(idx.id)}
+                              />
+                              <span className={idx.enabled ? "" : "text-slate-500"}>
+                                {idx.name} {!idx.enabled && "(désactivé)"}
+                              </span>
+                            </label>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+
+                  <p className="text-xs text-slate-500 mt-2">
+                    Aucun tracker coché = recherche sur tous les trackers configurés dans Prowlarr.
+                  </p>
+                </div>
+              )}
             </div>
           ))}
 
