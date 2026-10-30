@@ -38,20 +38,30 @@ function alreadyImported() {
 // profonde, lien symbolique en boucle, etc.).
 const MAX_SCAN_DEPTH = 6;
 
-function hasDirectFile(absDir) {
+function classifyDir(absDir) {
+  let dirents;
   try {
-    return fs
-      .readdirSync(absDir, { withFileTypes: true })
-      .some((entry) => !entry.isDirectory() && !entry.name.startsWith("."));
+    dirents = fs.readdirSync(absDir, { withFileTypes: true });
   } catch {
-    return false;
+    return { files: 0, subdirs: 0 };
   }
+  let files = 0;
+  let subdirs = 0;
+  for (const entry of dirents) {
+    if (entry.name.startsWith(".")) continue;
+    if (entry.isDirectory()) subdirs++;
+    else files++;
+  }
+  return { files, subdirs };
 }
 
-// Un dossier contenant directement des fichiers est traité comme un "dossier de
-// jeu" (ex: Action/Baldurs Gate 3/*.exe) et n'est pas parcouru plus en profondeur.
-// Un dossier ne contenant que des sous-dossiers est traité comme une simple
-// catégorie (ex: Action/, RPG/...) et on continue à descendre dedans.
+// Un dossier est traité comme un "dossier de jeu" (ex: Action/Baldurs Gate 3/
+// avec ses .exe) dès qu'il contient au moins autant de fichiers directs que de
+// sous-dossiers : son contenu représente alors un seul jeu (les quelques
+// sous-dossiers éventuels, type Crack/Patch, sont ignorés). Un dossier qui
+// contient surtout des sous-dossiers (ex: Action/, RPG/...) est traité comme
+// une simple catégorie et on continue à descendre dedans ; les fichiers isolés
+// qu'il contient malgré tout (archives) sont listés individuellement.
 function scanDir(absDir, relPrefix, imported, depth, entries) {
   let dirents;
   try {
@@ -67,7 +77,10 @@ function scanDir(absDir, relPrefix, imported, depth, entries) {
     const absPath = path.join(absDir, entry.name);
 
     if (entry.isDirectory()) {
-      if (depth >= MAX_SCAN_DEPTH || hasDirectFile(absPath)) {
+      const { files, subdirs } = classifyDir(absPath);
+      if (files === 0 && subdirs === 0) continue;
+
+      if (depth >= MAX_SCAN_DEPTH || files >= subdirs) {
         if (!imported.has(relPath)) {
           entries.push({ name: relPath, title: cleanTitle(entry.name), isDirectory: true, sizeBytes: null });
         }
