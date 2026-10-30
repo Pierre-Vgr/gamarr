@@ -93,12 +93,15 @@ function classifyDir(absDir) {
 }
 
 // Un dossier est traité comme un "dossier de jeu" (ex: Action/Baldurs Gate 3/
-// avec ses .exe) dès qu'il contient au moins autant de fichiers directs que de
-// sous-dossiers : son contenu représente alors un seul jeu (les quelques
-// sous-dossiers éventuels, type Crack/Patch, sont ignorés). Un dossier qui
-// contient surtout des sous-dossiers (ex: Action/, RPG/...) est traité comme
-// une simple catégorie et on continue à descendre dedans ; les fichiers isolés
-// qu'il contient malgré tout (archives) sont listés individuellement.
+// avec ses .exe) dès qu'il contient strictement plus de fichiers directs que
+// de sous-dossiers : son contenu représente alors un seul jeu (les quelques
+// sous-dossiers éventuels, type Crack/Patch/MD5, sont ignorés). En cas
+// d'égalité (ex: une catégorie avec un seul jeu en dossier et un seul en
+// archive), on privilégie la catégorie plutôt que de risquer d'avaler les
+// deux dans un seul "jeu" fantôme. Un dossier qui contient surtout des
+// sous-dossiers (ex: Action/, RPG/...) est traité comme une simple catégorie
+// et on continue à descendre dedans ; les fichiers isolés qu'il contient
+// malgré tout (archives) sont listés individuellement.
 function scanDir(absDir, relPrefix, imported, depth, entries) {
   let dirents;
   try {
@@ -117,7 +120,7 @@ function scanDir(absDir, relPrefix, imported, depth, entries) {
       const { files, subdirs } = classifyDir(absPath);
       if (files === 0 && subdirs === 0) continue;
 
-      if (depth >= MAX_SCAN_DEPTH || files >= subdirs) {
+      if (depth >= MAX_SCAN_DEPTH || files > subdirs) {
         if (!imported.has(relPath)) {
           entries.push({ name: relPath, title: cleanTitle(entry.name), isDirectory: true, sizeBytes: null });
         }
@@ -190,6 +193,61 @@ function isDuplicateExternal(source, externalId) {
   );
 }
 
+// Résout un chemin relatif vers un chemin absolu sous LIBRARY_DIR, en
+// re-vérifiant (en plus de isSafeRelativePath) que le résultat reste bien
+// dans LIBRARY_DIR. Renvoie null si le nom est invalide ou hors limites.
+function resolveLibraryPath(name) {
+  if (!isSafeRelativePath(name)) return null;
+  const libraryRoot = path.resolve(LIBRARY_DIR);
+  const absPath = path.resolve(libraryRoot, name);
+  if (absPath !== libraryRoot && !absPath.startsWith(libraryRoot + path.sep)) return null;
+  return absPath;
+}
+
+const insertImported = db.prepare(`
+  INSERT INTO games (title, platforms, status, genres, source, import_path)
+  VALUES (@title, '[]', 'backlog', '[]', 'import', @import_path)
+`);
+
+// Import d'une entrée unique avec contrôle fin : titre et correspondance de
+// métadonnées choisis à la main (vue de revue dédiée), au lieu du matching
+// automatique de l'import classique/intelligent.
+importRouter.post("/entry", async (req, res) => {
+  const { name, title, provider, externalId } = req.body || {};
+
+  if (!fs.existsSync(LIBRARY_DIR)) {
+    return res.status(400).json({ error: "libraryDir is not accessible" });
+  }
+
+  const absPath = resolveLibraryPath(name);
+  if (!absPath) {
+    return res.status(400).json({ error: "invalid name" });
+  }
+  if (!fs.existsSync(absPath)) {
+    return res.status(400).json({ error: "not found in libraryDir" });
+  }
+  if (alreadyImported().has(name)) {
+    return res.status(409).json({ error: "Ce chemin a déjà été importé" });
+  }
+  if (provider && externalId && isDuplicateExternal(provider, externalId)) {
+    return res.status(409).json({ error: "Ce jeu est déjà dans la bibliothèque" });
+  }
+
+  const finalTitle = (title && title.trim()) || cleanTitle(path.basename(name));
+  const result = insertImported.run({ title: finalTitle, import_path: name });
+  let game = serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(result.lastInsertRowid));
+
+  if (provider && externalId) {
+    try {
+      game = await enrichGame(game, { providerId: provider, externalId });
+    } catch (err) {
+      console.error(`Metadata enrichment failed for "${game.title}": ${err.message}`);
+    }
+  }
+
+  res.status(201).json(game);
+});
+
 // Import "intelligent" : scanne la ludothèque et n'ajoute automatiquement que les
 // entrées sans ambiguïté — un match de titre exact chez le provider de métadonnées
 // configuré, et pas déjà présentes en bibliothèque. Tout le reste (titre ambigu,
@@ -210,11 +268,6 @@ importRouter.post("/smart", async (req, res) => {
   const imported = alreadyImported();
   const scanned = [];
   scanDir(LIBRARY_DIR, "", imported, 0, scanned);
-
-  const insert = db.prepare(`
-    INSERT INTO games (title, platforms, status, genres, source, import_path)
-    VALUES (@title, '[]', 'backlog', '[]', 'import', @import_path)
-  `);
 
   const created = [];
   const skipped = [];
@@ -239,7 +292,7 @@ importRouter.post("/smart", async (req, res) => {
       continue;
     }
 
-    const result = insert.run({ title: cleanTitle(path.basename(entry.name)), import_path: entry.name });
+    const result = insertImported.run({ title: cleanTitle(path.basename(entry.name)), import_path: entry.name });
     let game = serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(result.lastInsertRowid));
     try {
       game = await enrichGame(game, { externalId: match.externalId, providerId: provider.id });
@@ -262,25 +315,14 @@ importRouter.post("/", async (req, res) => {
     return res.status(400).json({ error: "libraryDir is not accessible" });
   }
 
-  const libraryRoot = path.resolve(LIBRARY_DIR);
   const imported = alreadyImported();
-
-  const insert = db.prepare(`
-    INSERT INTO games (title, platforms, status, genres, source, import_path)
-    VALUES (@title, '[]', 'backlog', '[]', 'import', @import_path)
-  `);
 
   const created = [];
   const skipped = [];
 
   for (const name of names) {
-    if (!isSafeRelativePath(name)) {
-      skipped.push({ name, reason: "invalid name" });
-      continue;
-    }
-
-    const absPath = path.resolve(libraryRoot, name);
-    if (absPath !== libraryRoot && !absPath.startsWith(libraryRoot + path.sep)) {
+    const absPath = resolveLibraryPath(name);
+    if (!absPath) {
       skipped.push({ name, reason: "invalid name" });
       continue;
     }
@@ -294,7 +336,7 @@ importRouter.post("/", async (req, res) => {
     }
 
     const title = cleanTitle(path.basename(name));
-    const result = insert.run({ title, import_path: name });
+    const result = insertImported.run({ title, import_path: name });
     const game = serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(result.lastInsertRowid));
     created.push(await tryEnrich(game));
   }

@@ -3,7 +3,7 @@ import { api } from "./api/client.js";
 import { GameCard } from "./components/GameCard.jsx";
 import { GameDetailModal } from "./components/GameDetailModal.jsx";
 import { GameFormModal } from "./components/GameFormModal.jsx";
-import { ImportModal } from "./components/ImportModal.jsx";
+import { ImportView } from "./components/ImportView.jsx";
 import { DiscoverView } from "./components/DiscoverView.jsx";
 import { ReleaseSearchModal } from "./components/ReleaseSearchModal.jsx";
 import { SettingsView } from "./components/SettingsView.jsx";
@@ -11,6 +11,7 @@ import { LIBRARY_STATUS_OPTIONS } from "./components/StatusBadge.jsx";
 
 const NAV_ITEMS = [
   { id: "library", label: "Bibliothèque" },
+  { id: "import", label: "Importer" },
   { id: "wishlist", label: "Wishlist" },
   { id: "discover", label: "Découvrir" },
   { id: "settings", label: "Paramètres" },
@@ -30,7 +31,6 @@ export default function App() {
   const [facets, setFacets] = useState({ sources: [], genres: [] });
   const [modalGame, setModalGame] = useState(undefined); // undefined = closed, null = new, object = edit
   const [detailGame, setDetailGame] = useState(null);
-  const [showImport, setShowImport] = useState(false);
   const [releaseSearchGame, setReleaseSearchGame] = useState(null);
   const [prowlarrConfigured, setProwlarrConfigured] = useState(false);
 
@@ -113,14 +113,6 @@ export default function App() {
           </h2>
           {isGridView && (
             <div className="flex gap-2">
-              {view === "library" && (
-                <button
-                  onClick={() => setShowImport(true)}
-                  className="px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 font-medium"
-                >
-                  Importer
-                </button>
-              )}
               <button
                 onClick={() => setModalGame(null)}
                 className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium"
@@ -131,6 +123,7 @@ export default function App() {
           )}
         </div>
 
+        {view === "import" && <ImportView onImported={load} />}
         {view === "discover" && <DiscoverView />}
         {view === "settings" && <SettingsView />}
 
@@ -221,17 +214,6 @@ export default function App() {
               setModalGame(undefined);
               load();
             }}
-          />
-        )}
-
-        {showImport && (
-          <ImportModal
-            onClose={() => setShowImport(false)}
-            onImported={() => {
-              setShowImport(false);
-              load();
-            }}
-            onRefresh={load}
           />
         )}
 
