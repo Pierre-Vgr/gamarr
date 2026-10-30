@@ -37,7 +37,6 @@ const RELEASE_GROUPS = [
   "goldberg",
   "repack",
   "p2p",
-  "gog",
 ];
 const RELEASE_GROUP_PATTERN = RELEASE_GROUPS.join("|");
 const LEADING_GROUP_RE = new RegExp(`^(${RELEASE_GROUP_PATTERN})-`, "i");
@@ -49,13 +48,16 @@ const TRAILING_GROUP_RE = new RegExp(`-(${RELEASE_GROUP_PATTERN})$`, "i");
 const PART_ARCHIVE_RE = /\.part0*\d+\.(rar|zip|7z)$/i;
 const VOLUME_ARCHIVE_RE = /\.(7z|zip)\.0*\d+$/i;
 
-// "SteamRIP" peut être collé n'importe comment (espace, point, tiret...) selon
-// la convention de nommage, contrairement aux autres tags de groupe qui ne
-// sont retirés que s'ils sont accolés en préfixe/suffixe sans espace : c'est
-// un nom de marque suffisamment distinctif pour être retiré n'importe où sans
-// risquer de tronquer un vrai titre. Les séparateurs autour sont inclus dans
-// le retrait pour ne pas laisser de tiret/point orphelin.
-const STEAMRIP_RE = /[\s._-]*steam\s*rip(\.com)?[\s._-]*/gi;
+// "SteamRIP"/"GOG" peuvent être collés n'importe comment (espace, point,
+// tiret...) selon la convention de nommage, contrairement aux tags de
+// RELEASE_GROUPS qui ne sont retirés que s'ils sont accolés en préfixe/suffixe
+// sans espace. Réservé aux marques assez distinctives pour être retirées
+// n'importe où sans risquer de tronquer un vrai titre — à la différence de
+// mots de RELEASE_GROUPS comme "reloaded" ou "darksiders" qui sont aussi de
+// vrais mots/titres (ex: "The Matrix Reloaded"), donc volontairement laissés
+// au cas accolé-sans-espace uniquement. Les séparateurs autour sont inclus
+// dans le retrait pour ne pas laisser de tiret/point orphelin.
+const DISTINCTIVE_BRAND_RE = /[\s._-]*\b(steam\s*rip(\.com)?|gog)\b[\s._-]*/gi;
 
 // Bruit de fin fréquent sur les repacks, pas forcément entre crochets (déjà
 // géré par le retrait de `[...]`/`(...)` ci-dessous) : numéro de version, de
@@ -75,13 +77,24 @@ function stripTrailingNoise(title) {
   return title;
 }
 
+// Retire une extension de fichier plausible en fin de nom (.rar, .iso, .7z...).
+// Rejette un suffixe purement numérique (".2042", ".23") : ce n'est jamais une
+// vraie extension (même "7z" contient une lettre) mais presque toujours une
+// année ou un numéro faisant partie du titre (ex: "Battlefield.2042"), qu'il
+// ne faut pas perdre.
+function stripFileExtension(name) {
+  const match = name.match(/\.([a-zA-Z0-9]{1,4})$/);
+  if (!match || /^\d+$/.test(match[1])) return name;
+  return name.slice(0, -match[0].length);
+}
+
 function cleanTitle(name) {
   let title = name.replace(PART_ARCHIVE_RE, "").replace(VOLUME_ARCHIVE_RE, "");
-  title = title.replace(/\.[a-zA-Z0-9]{1,4}$/, "");
+  title = stripFileExtension(title);
   // Avant la conversion point/underscore -> espace, tant que "v1.12" a encore
   // son point littéral (sinon le motif de version ne matche plus du tout).
   title = stripTrailingNoise(title);
-  title = title.replace(STEAMRIP_RE, " ");
+  title = title.replace(DISTINCTIVE_BRAND_RE, " ");
   title = title.replace(/[._]+/g, " ");
   title = title.replace(/\s*[[(][^\])]*[\])]\s*/g, " ");
   title = title.replace(LEADING_GROUP_RE, "");
