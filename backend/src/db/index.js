@@ -47,6 +47,9 @@ addColumnIfMissing("import_path", "TEXT");
 addColumnIfMissing("stores", "TEXT NOT NULL DEFAULT '[]'");
 addColumnIfMissing("steam_app_id", "TEXT");
 addColumnIfMissing("proton_tier", "TEXT");
+addColumnIfMissing("metacritic_score", "INTEGER");
+addColumnIfMissing("community_rating", "INTEGER");
+addColumnIfMissing("ratings_count", "INTEGER");
 
 db.exec(
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_games_import_path ON games(import_path) WHERE import_path IS NOT NULL"

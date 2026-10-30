@@ -63,6 +63,9 @@ function mapGame(game) {
       : null,
     platforms: filterPcPlatforms((game.platforms || []).map((p) => p.name)),
     genres: (game.genres || []).map((g) => g.name),
+    metacriticScore: game.aggregated_rating ? Math.round(game.aggregated_rating) : null,
+    communityRating: game.rating ? Math.round(game.rating) : null,
+    ratingsCount: game.rating_count || null,
   };
 }
 
@@ -82,7 +85,7 @@ export const igdbProvider = {
   async getDetails(externalId) {
     if (!isConfigured()) throw new Error("IGDB is not configured");
     const results = await query(
-      `fields name,summary,cover.url,first_release_date,platforms.name,genres.name; where id = ${Number(
+      `fields name,summary,cover.url,first_release_date,platforms.name,genres.name,aggregated_rating,rating,rating_count; where id = ${Number(
         externalId
       )};`
     );

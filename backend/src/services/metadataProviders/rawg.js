@@ -54,6 +54,9 @@ export const rawgProvider = {
       releaseDate: game.released || null,
       platforms: filterPcPlatforms((game.platforms || []).map((p) => p.platform.name)),
       genres: (game.genres || []).map((g) => g.name),
+      metacriticScore: game.metacritic || null,
+      communityRating: game.rating ? Math.round(game.rating * 20) : null, // RAWG note sur 5 -> /100
+      ratingsCount: game.ratings_count || null,
     };
   },
 

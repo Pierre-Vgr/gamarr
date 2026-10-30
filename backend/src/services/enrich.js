@@ -8,7 +8,8 @@ const updateMetadata = db.prepare(`
     cover_url = @cover_url, description = @description, release_date = @release_date,
     platforms = @platforms, genres = @genres, external_id = @external_id,
     stores = @stores, steam_app_id = @steam_app_id, proton_tier = @proton_tier,
-    updated_at = datetime('now')
+    metacritic_score = @metacritic_score, community_rating = @community_rating,
+    ratings_count = @ratings_count, updated_at = datetime('now')
   WHERE id = @id
 `);
 
@@ -84,6 +85,9 @@ export async function enrichGame(game, { query, providerId, externalId } = {}) {
     stores: JSON.stringify(stores),
     steam_app_id: steamAppId,
     proton_tier: protonTier,
+    metacritic_score: details.metacriticScore ?? null,
+    community_rating: details.communityRating ?? null,
+    ratings_count: details.ratingsCount ?? null,
   });
   return serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(game.id));
 }
