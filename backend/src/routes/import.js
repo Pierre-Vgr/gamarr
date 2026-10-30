@@ -43,14 +43,36 @@ const RELEASE_GROUP_PATTERN = RELEASE_GROUPS.join("|");
 const LEADING_GROUP_RE = new RegExp(`^(${RELEASE_GROUP_PATTERN})-`, "i");
 const TRAILING_GROUP_RE = new RegExp(`-(${RELEASE_GROUP_PATTERN})$`, "i");
 
+// Suffixes d'archive multi-volumes ("Game.part1.rar", "Game.7z.001") : il faut
+// retirer tout le suffixe en un coup, sinon le numéro de volume reste collé au
+// titre nettoyé (ex: "Game part1") et casse le matching.
+const PART_ARCHIVE_RE = /\.part0*\d+\.(rar|zip|7z)$/i;
+const VOLUME_ARCHIVE_RE = /\.(7z|zip)\.0*\d+$/i;
+
 function cleanTitle(name) {
-  let title = name.replace(/\.[a-zA-Z0-9]{1,4}$/, "");
+  let title = name.replace(PART_ARCHIVE_RE, "").replace(VOLUME_ARCHIVE_RE, "");
+  title = title.replace(/\.[a-zA-Z0-9]{1,4}$/, "");
   title = title.replace(/[._]+/g, " ");
   title = title.replace(/\s*[[(][^\])]*[\])]\s*/g, " ");
   title = title.replace(LEADING_GROUP_RE, "");
   title = title.replace(TRAILING_GROUP_RE, "");
   title = title.replace(/\s+/g, " ").trim();
   return title || name;
+}
+
+// Un seul fichier doit représenter toute une archive multi-volumes à l'import
+// ("Game.part1.rar" ou "Game.rar"+.r00/.r01..., "Game.7z.001"+.002...) : les
+// volumes suivants sont ignorés pour ne pas lister la même release plusieurs
+// fois ni fausser le compte de jeux détectés.
+function isNonFirstArchiveVolume(name) {
+  const partMatch = name.match(/\.part0*(\d+)\.(rar|zip|7z)$/i);
+  if (partMatch) return Number(partMatch[1]) > 1;
+
+  const volumeMatch = name.match(/\.(7z|zip)\.0*(\d+)$/i);
+  if (volumeMatch) return Number(volumeMatch[2]) > 1;
+
+  // Game.r00, Game.r01... (suite d'un .rar classique) : jamais le premier volume.
+  return /\.r\d{2,3}$/i.test(name);
 }
 
 function alreadyImported() {
@@ -176,7 +198,9 @@ function classifyDir(absDir) {
       // Un sous-dossier générique (assets/support d'un jeu) ne compte pas comme
       // "un autre jeu" dans la comparaison fichiers/sous-dossiers ci-dessous.
       if (!GENERIC_SUBFOLDER_NAMES.has(entry.name.toLowerCase())) subdirs++;
-    } else {
+    } else if (!isNonFirstArchiveVolume(entry.name)) {
+      // Les volumes suivants d'une même archive (.part2.rar, .r01, .7z.002...)
+      // ne comptent pas comme des fichiers distincts : c'est une seule release.
       files++;
     }
   }
@@ -221,6 +245,7 @@ function scanDir(absDir, relPrefix, imported, depth, entries) {
         scanDir(absPath, relPath, imported, depth + 1, entries);
       }
     } else {
+      if (isNonFirstArchiveVolume(entry.name)) continue;
       if (pathOverlapReason(relPath, imported)) continue;
       let sizeBytes = null;
       try {
