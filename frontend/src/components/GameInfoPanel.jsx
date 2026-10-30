@@ -17,7 +17,10 @@ export function GameInfoPanel({
   description,
   notes,
   personalRating,
+  screenshots,
+  trailers,
 }) {
+  const trailer = trailers?.[0];
   return (
     <>
       <div className="flex gap-4">
@@ -80,6 +83,41 @@ export function GameInfoPanel({
         <div className="mt-4 p-3 bg-slate-800 rounded">
           <p className="text-xs text-slate-500 mb-1">Notes personnelles</p>
           <p className="text-sm text-slate-300">{notes}</p>
+        </div>
+      )}
+
+      {trailer && (
+        <div className="mt-4">
+          <p className="text-xs text-slate-500 mb-2">Trailer</p>
+          {trailer.youtube ? (
+            <iframe
+              src={trailer.videoUrl}
+              title={trailer.name || "Trailer"}
+              className="w-full aspect-video rounded"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          ) : (
+            <video
+              src={trailer.videoUrl}
+              poster={trailer.thumbnail || undefined}
+              controls
+              className="w-full rounded"
+            />
+          )}
+        </div>
+      )}
+
+      {screenshots?.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs text-slate-500 mb-2">Captures d'écran</p>
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {screenshots.map((url) => (
+              <a key={url} href={url} target="_blank" rel="noreferrer" className="shrink-0">
+                <img src={url} alt="" className="h-24 rounded object-cover" />
+              </a>
+            ))}
+          </div>
         </div>
       )}
     </>

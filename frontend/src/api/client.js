@@ -34,6 +34,7 @@ export const api = {
   searchMetadata: (q, provider = "rawg") =>
     request(`/metadata/search?q=${encodeURIComponent(q)}&provider=${provider}`),
   getMetadataDetails: (provider, externalId) => request(`/metadata/${provider}/${externalId}`),
+  getMedia: (provider, externalId) => request(`/metadata/${provider}/${externalId}/media`),
   browseCatalog: (provider = "rawg", page = 1) =>
     request(`/metadata/browse?provider=${provider}&page=${page}`),
 

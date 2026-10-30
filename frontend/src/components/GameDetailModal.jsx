@@ -1,11 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GameInfoPanel } from "./GameInfoPanel.jsx";
 import { api } from "../api/client.js";
 
+const MEDIA_PROVIDERS = ["rawg", "igdb"];
+
 export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, onSearchReleases }) {
   const [current, setCurrent] = useState(game);
+  const [media, setMedia] = useState({ screenshots: [], trailers: [] });
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState(null);
+
+  useEffect(() => {
+    if (!MEDIA_PROVIDERS.includes(current.source) || !current.external_id) {
+      setMedia({ screenshots: [], trailers: [] });
+      return;
+    }
+    api
+      .getMedia(current.source, current.external_id)
+      .then(setMedia)
+      .catch(() => setMedia({ screenshots: [], trailers: [] }));
+  }, [current.source, current.external_id]);
 
   async function handleRefresh() {
     setRefreshing(true);
@@ -54,6 +68,8 @@ export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, 
           description={current.description}
           notes={current.notes}
           personalRating={current.rating}
+          screenshots={media.screenshots}
+          trailers={media.trailers}
         />
 
         {refreshError && <p className="text-red-400 text-sm mt-3">{refreshError}</p>}

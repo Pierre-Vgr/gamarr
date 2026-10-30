@@ -4,13 +4,19 @@ import { api } from "../api/client.js";
 
 export function DiscoverDetailModal({ result, onClose, onAdd, isAdded, isAdding }) {
   const [details, setDetails] = useState(null);
+  const [media, setMedia] = useState({ screenshots: [], trailers: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    api
-      .getMetadataDetails(result.source, result.externalId)
-      .then(setDetails)
+    Promise.all([
+      api.getMetadataDetails(result.source, result.externalId),
+      api.getMedia(result.source, result.externalId).catch(() => ({ screenshots: [], trailers: [] })),
+    ])
+      .then(([d, m]) => {
+        setDetails(d);
+        setMedia(m);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [result]);
@@ -33,6 +39,8 @@ export function DiscoverDetailModal({ result, onClose, onAdd, isAdded, isAdding 
             communityRating={data.communityRating}
             ratingsCount={data.ratingsCount}
             description={data.description}
+            screenshots={media.screenshots}
+            trailers={media.trailers}
           />
         )}
 

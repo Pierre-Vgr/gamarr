@@ -34,6 +34,17 @@ metadataRouter.get("/browse", async (req, res) => {
   }
 });
 
+metadataRouter.get("/:provider/:externalId/media", async (req, res) => {
+  const { provider, externalId } = req.params;
+  try {
+    const impl = getProvider(provider);
+    if (!impl.getMedia) return res.json({ screenshots: [], trailers: [] });
+    res.json(await impl.getMedia(externalId));
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 metadataRouter.get("/:provider/:externalId", async (req, res) => {
   const { provider, externalId } = req.params;
   try {

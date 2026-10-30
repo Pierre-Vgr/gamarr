@@ -7,9 +7,10 @@ const updateMetadata = db.prepare(`
   UPDATE games SET
     cover_url = @cover_url, description = @description, release_date = @release_date,
     platforms = @platforms, genres = @genres, external_id = @external_id,
-    stores = @stores, steam_app_id = @steam_app_id, proton_tier = @proton_tier,
-    metacritic_score = @metacritic_score, community_rating = @community_rating,
-    ratings_count = @ratings_count, updated_at = datetime('now')
+    source = @source, stores = @stores, steam_app_id = @steam_app_id,
+    proton_tier = @proton_tier, metacritic_score = @metacritic_score,
+    community_rating = @community_rating, ratings_count = @ratings_count,
+    updated_at = datetime('now')
   WHERE id = @id
 `);
 
@@ -82,6 +83,7 @@ export async function enrichGame(game, { query, providerId, externalId } = {}) {
     platforms: JSON.stringify(details.platforms || []),
     genres: JSON.stringify(details.genres || []),
     external_id: details.externalId || null,
+    source: provider.id,
     stores: JSON.stringify(stores),
     steam_app_id: steamAppId,
     proton_tier: protonTier,

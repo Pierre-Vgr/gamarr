@@ -90,6 +90,32 @@ export const rawgProvider = {
     }));
   },
 
+  async getMedia(externalId) {
+    const screenshotsUrl = new URL(`${BASE_URL}/games/${externalId}/screenshots`);
+    screenshotsUrl.searchParams.set("key", apiKey());
+    const moviesUrl = new URL(`${BASE_URL}/games/${externalId}/movies`);
+    moviesUrl.searchParams.set("key", apiKey());
+
+    const [screenshotsRes, moviesRes] = await Promise.all([fetch(screenshotsUrl), fetch(moviesUrl)]);
+    if (!screenshotsRes.ok) throw new Error(`RAWG screenshots failed: ${screenshotsRes.status}`);
+    if (!moviesRes.ok) throw new Error(`RAWG movies failed: ${moviesRes.status}`);
+
+    const screenshotsData = await screenshotsRes.json();
+    const moviesData = await moviesRes.json();
+
+    return {
+      screenshots: (screenshotsData.results || []).map((s) => s.image).filter(Boolean),
+      trailers: (moviesData.results || [])
+        .map((m) => ({
+          name: m.name,
+          thumbnail: m.preview || null,
+          videoUrl: m.data?.max || m.data?.["480"] || null,
+          youtube: false,
+        }))
+        .filter((t) => t.videoUrl),
+    };
+  },
+
   async getStores(externalId) {
     const [gameStores, storeCatalog] = await Promise.all([fetchGameStores(externalId), fetchStoreCatalog()]);
 

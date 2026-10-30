@@ -92,6 +92,29 @@ export const igdbProvider = {
     if (!results.length) throw new Error("Game not found on IGDB");
     return mapGame(results[0]);
   },
+
+  async getMedia(externalId) {
+    if (!isConfigured()) throw new Error("IGDB is not configured");
+    const results = await query(
+      `fields screenshots.url,videos.video_id,videos.name; where id = ${Number(externalId)};`
+    );
+    if (!results.length) return { screenshots: [], trailers: [] };
+    const game = results[0];
+
+    return {
+      screenshots: (game.screenshots || [])
+        .map((s) => (s.url ? `https:${s.url.replace("t_thumb", "t_screenshot_big")}` : null))
+        .filter(Boolean),
+      trailers: (game.videos || [])
+        .filter((v) => v.video_id)
+        .map((v) => ({
+          name: v.name,
+          thumbnail: `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
+          videoUrl: `https://www.youtube.com/embed/${v.video_id}`,
+          youtube: true,
+        })),
+    };
+  },
 };
 
 export async function testIgdbCredentials(clientId, clientSecret) {
