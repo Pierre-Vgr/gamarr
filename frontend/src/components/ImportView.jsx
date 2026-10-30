@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
 import { formatSize } from "../utils/format.js";
 import { ImportEntryReview } from "./ImportEntryReview.jsx";
+import { ImportDiagnostics } from "./ImportDiagnostics.jsx";
 
 export function ImportView({ onImported }) {
   const [scan, setScan] = useState(null);
@@ -9,6 +10,7 @@ export function ImportView({ onImported }) {
   const [bulkRunning, setBulkRunning] = useState(false);
   const [smartRunning, setSmartRunning] = useState(false);
   const [smartResult, setSmartResult] = useState(null);
+  const [bulkResult, setBulkResult] = useState(null);
   const [bulkError, setBulkError] = useState(null);
 
   const [currentPath, setCurrentPath] = useState("");
@@ -67,8 +69,10 @@ export function ImportView({ onImported }) {
     if (names.length === 0) return;
     setBulkRunning(true);
     setBulkError(null);
+    setBulkResult(null);
     try {
-      await api.importGames(names);
+      const result = await api.importGames(names);
+      setBulkResult(result);
       setSelected((prev) => {
         const next = new Set(prev);
         names.forEach((n) => next.delete(n));
@@ -164,6 +168,20 @@ export function ImportView({ onImported }) {
     }
   }
 
+  const bulkDiagnosticItems = bulkResult
+    ? [
+        ...bulkResult.created
+          .filter((g) => g.matchDiagnostic)
+          .map((g) => ({
+            name: g.import_path || g.title,
+            reason: "importé sans métadonnées (aucun match fiable)",
+            query: g.matchDiagnostic.query,
+            candidates: g.matchDiagnostic.candidates,
+          })),
+        ...bulkResult.skipped,
+      ]
+    : [];
+
   const busy = bulkRunning || smartRunning;
   const activeEntry = browse?.entries.find((e) => e.name === activeName) || null;
   const selectableInCurrentLevel = (browse?.entries || []).filter((e) => !e.alreadyImported);
@@ -239,12 +257,33 @@ export function ImportView({ onImported }) {
           </div>
 
           {smartResult && (
-            <p className="text-xs mt-2">
-              <span className="text-emerald-400">{smartResult.created.length} ajouté(s)</span>
-              {" · "}
-              <span className="text-slate-400">{smartResult.skipped.length} laissé(s) pour tri manuel</span>
-            </p>
+            <div className="mt-2">
+              <p className="text-xs">
+                <span className="text-emerald-400">{smartResult.created.length} ajouté(s)</span>
+                {" · "}
+                <span className="text-slate-400">{smartResult.skipped.length} laissé(s) pour tri manuel</span>
+              </p>
+              <ImportDiagnostics items={smartResult.skipped} />
+            </div>
           )}
+
+          {bulkResult && (
+            <div className="mt-2">
+              <p className="text-xs">
+                <span className="text-emerald-400">{bulkResult.created.length} importé(s)</span>
+                {bulkDiagnosticItems.length > 0 && (
+                  <>
+                    {" · "}
+                    <span className="text-slate-400">
+                      {bulkDiagnosticItems.length} sans correspondance fiable (titre seul)
+                    </span>
+                  </>
+                )}
+              </p>
+              <ImportDiagnostics items={bulkDiagnosticItems} />
+            </div>
+          )}
+
           {bulkError && <p className="text-red-400 text-xs mt-2">{bulkError}</p>}
         </div>
       )}

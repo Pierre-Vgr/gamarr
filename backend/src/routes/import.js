@@ -418,6 +418,14 @@ function findConfidentMatch(title, results) {
   return results.find((r) => normalizeTitle(r.title) === target) || null;
 }
 
+// Pour le diagnostic affiché à l'utilisateur quand aucun match fiable n'est
+// trouvé : les quelques résultats les plus proches, pour voir en un coup
+// d'œil pourquoi le titre recherché ne matche "exactement" aucun d'entre eux
+// (édition, sous-titre, orthographe...) sans avoir à relancer une recherche.
+function topCandidates(results, limit = 3) {
+  return results.slice(0, limit).map((r) => ({ title: r.title, releaseDate: r.releaseDate || null }));
+}
+
 function isDuplicateExternal(source, externalId) {
   if (!externalId) return false;
   return Boolean(
@@ -515,18 +523,28 @@ importRouter.post("/smart", async (req, res) => {
     try {
       results = await providerImpl.search(entry.title);
     } catch (err) {
-      skipped.push({ name: entry.name, reason: `recherche échouée: ${err.message}` });
+      skipped.push({ name: entry.name, reason: `recherche échouée: ${err.message}`, query: entry.title });
       continue;
     }
 
     const match = findConfidentMatch(entry.title, results);
     if (!match) {
-      skipped.push({ name: entry.name, reason: "pas de correspondance fiable" });
+      skipped.push({
+        name: entry.name,
+        reason: "pas de correspondance fiable",
+        query: entry.title,
+        candidates: topCandidates(results),
+      });
       continue;
     }
 
     if (isDuplicateExternal(provider.id, match.externalId)) {
-      skipped.push({ name: entry.name, reason: "déjà présent en bibliothèque" });
+      skipped.push({
+        name: entry.name,
+        reason: "déjà présent en bibliothèque",
+        query: entry.title,
+        matchedTitle: match.title,
+      });
       continue;
     }
 
@@ -584,12 +602,15 @@ importRouter.post("/", async (req, res) => {
     // importer" — mais sans métadonnées erronées en cas de doute, modifiable
     // plus tard depuis la fiche.
     let match = null;
+    let matchDiagnostic = null;
     if (providerImpl) {
       try {
         const results = await providerImpl.search(title);
         const candidate = findConfidentMatch(title, results);
         if (candidate && !isDuplicateExternal(provider.id, candidate.externalId)) {
           match = candidate;
+        } else {
+          matchDiagnostic = { query: title, candidates: topCandidates(results) };
         }
       } catch (err) {
         console.error(`Metadata search failed for "${title}": ${err.message}`);
@@ -604,6 +625,9 @@ importRouter.post("/", async (req, res) => {
       } catch (err) {
         console.error(`Metadata enrichment failed for "${game.title}": ${err.message}`);
       }
+    } else if (matchDiagnostic) {
+      // Pas persisté en base, juste pour le diagnostic affiché côté import.
+      game.matchDiagnostic = matchDiagnostic;
     }
     imported.add(name);
     created.push(game);
