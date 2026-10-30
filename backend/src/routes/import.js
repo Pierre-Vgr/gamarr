@@ -49,14 +49,48 @@ const TRAILING_GROUP_RE = new RegExp(`-(${RELEASE_GROUP_PATTERN})$`, "i");
 const PART_ARCHIVE_RE = /\.part0*\d+\.(rar|zip|7z)$/i;
 const VOLUME_ARCHIVE_RE = /\.(7z|zip)\.0*\d+$/i;
 
+// "SteamRIP" peut être collé n'importe comment (espace, point, tiret...) selon
+// la convention de nommage, contrairement aux autres tags de groupe qui ne
+// sont retirés que s'ils sont accolés en préfixe/suffixe sans espace : c'est
+// un nom de marque suffisamment distinctif pour être retiré n'importe où sans
+// risquer de tronquer un vrai titre. Les séparateurs autour sont inclus dans
+// le retrait pour ne pas laisser de tiret/point orphelin.
+const STEAMRIP_RE = /[\s._-]*steam\s*rip(\.com)?[\s._-]*/gi;
+
+// Bruit de fin fréquent sur les repacks, pas forcément entre crochets (déjà
+// géré par le retrait de `[...]`/`(...)` ci-dessous) : numéro de version, de
+// build, ou mention des DLC inclus. Le séparateur de version peut être un
+// point OU un underscore selon que la conversion point/underscore -> espace a
+// déjà eu lieu ou pas (cette fonction est appelée avant ET après). En boucle
+// car ces segments peuvent se chaîner ("Game v1.2 + All DLCs").
+const TRAILING_NOISE_RE =
+  /[\s._-]+(v\d+([._]\d+)*|build\s*\d+|update\s*\d+|\+\s*(all\s+)?\d*\s*dlcs?(\s+included)?)$/i;
+
+function stripTrailingNoise(title) {
+  let previous;
+  do {
+    previous = title;
+    title = title.replace(TRAILING_NOISE_RE, "").trim();
+  } while (title !== previous);
+  return title;
+}
+
 function cleanTitle(name) {
   let title = name.replace(PART_ARCHIVE_RE, "").replace(VOLUME_ARCHIVE_RE, "");
   title = title.replace(/\.[a-zA-Z0-9]{1,4}$/, "");
+  // Avant la conversion point/underscore -> espace, tant que "v1.12" a encore
+  // son point littéral (sinon le motif de version ne matche plus du tout).
+  title = stripTrailingNoise(title);
+  title = title.replace(STEAMRIP_RE, " ");
   title = title.replace(/[._]+/g, " ");
   title = title.replace(/\s*[[(][^\])]*[\])]\s*/g, " ");
   title = title.replace(LEADING_GROUP_RE, "");
   title = title.replace(TRAILING_GROUP_RE, "");
   title = title.replace(/\s+/g, " ").trim();
+  // Et une deuxième fois après, pour le bruit qui n'apparaît qu'une fois les
+  // séparateurs convertis en espaces (ex: bruit introduit par le retrait des
+  // crochets, ou un tag de groupe qui en cachait un autre derrière).
+  title = stripTrailingNoise(title);
   return title || name;
 }
 
