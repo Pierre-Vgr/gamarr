@@ -1,12 +1,13 @@
 import { StatusBadge } from "./StatusBadge.jsx";
 import { ProtonBadge } from "./ProtonBadge.jsx";
+import { MetacriticBadge } from "./MetacriticBadge.jsx";
 
 export function GameCard({ game, onOpen }) {
   return (
     <button
       type="button"
       onClick={() => onOpen(game)}
-      className="bg-slate-900 rounded-lg overflow-hidden shadow-lg hover:shadow-xl hover:ring-2 hover:ring-indigo-500 transition-all text-left"
+      className="group bg-slate-900 rounded-lg overflow-hidden shadow-lg hover:shadow-xl hover:ring-2 hover:ring-indigo-500 transition-all text-left"
     >
       <div className="aspect-[3/4] bg-slate-800 relative">
         {game.cover_url ? (
@@ -24,6 +25,11 @@ export function GameCard({ game, onOpen }) {
         <div className="absolute top-2 right-2">
           <StatusBadge status={game.status} />
         </div>
+        {game.metacritic_score != null && (
+          <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <MetacriticBadge score={game.metacritic_score} />
+          </div>
+        )}
       </div>
       <div className="p-3">
         <h3 className="font-semibold truncate" title={game.title}>

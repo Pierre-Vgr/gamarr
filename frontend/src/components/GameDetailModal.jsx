@@ -1,20 +1,8 @@
 import { useState } from "react";
 import { StatusBadge } from "./StatusBadge.jsx";
 import { ProtonBadge } from "./ProtonBadge.jsx";
+import { MetacriticBadge } from "./MetacriticBadge.jsx";
 import { api } from "../api/client.js";
-
-function MetacriticBadge({ score }) {
-  if (score == null) return null;
-  const color = score >= 75 ? "bg-emerald-700" : score >= 50 ? "bg-yellow-600" : "bg-red-700";
-  return (
-    <span
-      className={`inline-flex items-center justify-center w-7 h-7 rounded text-xs font-bold text-white shrink-0 ${color}`}
-      title="Score Metacritic"
-    >
-      {score}
-    </span>
-  );
-}
 
 export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, onSearchReleases }) {
   const [current, setCurrent] = useState(game);
@@ -76,22 +64,6 @@ export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, 
             {current.genres?.length > 0 && (
               <p className="text-sm text-slate-500 mt-1">{current.genres.join(", ")}</p>
             )}
-            {(current.metacritic_score != null || current.community_rating != null) && (
-              <div className="flex items-center gap-3 mt-2">
-                {current.metacritic_score != null && (
-                  <div className="flex items-center gap-1.5">
-                    <MetacriticBadge score={current.metacritic_score} />
-                    <span className="text-xs text-slate-500">Metacritic</span>
-                  </div>
-                )}
-                {current.community_rating != null && (
-                  <span className="text-xs text-slate-400">
-                    Note communauté : {current.community_rating}/100
-                    {current.ratings_count ? ` (${current.ratings_count} avis)` : ""}
-                  </span>
-                )}
-              </div>
-            )}
             {(current.stores?.length > 0 || current.proton_tier) && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {current.stores?.map((s) => (
@@ -109,6 +81,22 @@ export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, 
               <p className="text-sm text-slate-400 mt-2">Note : {current.rating} / 5</p>
             )}
           </div>
+
+          {(current.metacritic_score != null || current.community_rating != null) && (
+            <div className="flex flex-col items-center gap-2 shrink-0 pl-4 border-l border-slate-800">
+              {current.metacritic_score != null && (
+                <MetacriticBadge score={current.metacritic_score} size="lg" showLabel />
+              )}
+              {current.community_rating != null && (
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-slate-200">{current.community_rating}/100</p>
+                  <p className="text-[10px] text-slate-500">
+                    communauté{current.ratings_count ? ` · ${current.ratings_count} avis` : ""}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {current.description && (
