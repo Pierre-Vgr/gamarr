@@ -91,6 +91,76 @@ function isFullyCovered(relPath, importedSet) {
 // profonde, lien symbolique en boucle, etc.).
 const MAX_SCAN_DEPTH = 6;
 
+// Noms de sous-dossiers génériques qu'on trouve à l'intérieur d'UN jeu déjà
+// installé/extrait (assets, support, extras...), par opposition à un vrai
+// dossier catégorie dont les sous-dossiers sont d'AUTRES jeux. Un jeu avec
+// beaucoup de ces sous-dossiers (Data/, bin/, Textures/...) peut facilement
+// avoir plus de sous-dossiers que de fichiers à sa racine ; sans ça, il serait
+// à tort traité comme une catégorie et chacun de ses sous-dossiers scanné comme
+// un jeu séparé.
+const GENERIC_SUBFOLDER_NAMES = new Set([
+  "data",
+  "bin",
+  "binaries",
+  "docs",
+  "documentation",
+  "help",
+  "manual",
+  "manuals",
+  "music",
+  "musics",
+  "textures",
+  "texture",
+  "sounds",
+  "sound",
+  "system",
+  "support",
+  "resources",
+  "resource",
+  "mods",
+  "mod",
+  "saves",
+  "save",
+  "savegames",
+  "patch",
+  "patches",
+  "crack",
+  "cracks",
+  "keygen",
+  "keygens",
+  "md5",
+  "redist",
+  "redistributables",
+  "dlc",
+  "dlcs",
+  "extras",
+  "extra",
+  "bonus",
+  "soundtrack",
+  "soundtracks",
+  "localisation",
+  "localization",
+  "language",
+  "languages",
+  "locale",
+  "locales",
+  "config",
+  "configs",
+  "settings",
+  "cache",
+  "logs",
+  "temp",
+  "wallpapers",
+  "wallpaper",
+  "artwork",
+  "art",
+  "screenshots",
+  "videos",
+  "movies",
+  "trailers",
+  "fonts",
+]);
+
 function classifyDir(absDir) {
   let dirents;
   try {
@@ -102,22 +172,27 @@ function classifyDir(absDir) {
   let subdirs = 0;
   for (const entry of dirents) {
     if (entry.name.startsWith(".")) continue;
-    if (entry.isDirectory()) subdirs++;
-    else files++;
+    if (entry.isDirectory()) {
+      // Un sous-dossier générique (assets/support d'un jeu) ne compte pas comme
+      // "un autre jeu" dans la comparaison fichiers/sous-dossiers ci-dessous.
+      if (!GENERIC_SUBFOLDER_NAMES.has(entry.name.toLowerCase())) subdirs++;
+    } else {
+      files++;
+    }
   }
   return { files, subdirs };
 }
 
 // Un dossier est traité comme un "dossier de jeu" (ex: Action/Baldurs Gate 3/
 // avec ses .exe) dès qu'il contient strictement plus de fichiers directs que
-// de sous-dossiers : son contenu représente alors un seul jeu (les quelques
-// sous-dossiers éventuels, type Crack/Patch/MD5, sont ignorés). En cas
-// d'égalité (ex: une catégorie avec un seul jeu en dossier et un seul en
-// archive), on privilégie la catégorie plutôt que de risquer d'avaler les
-// deux dans un seul "jeu" fantôme. Un dossier qui contient surtout des
-// sous-dossiers (ex: Action/, RPG/...) est traité comme une simple catégorie
-// et on continue à descendre dedans ; les fichiers isolés qu'il contient
-// malgré tout (archives) sont listés individuellement.
+// de "vrais" sous-dossiers (hors noms génériques ci-dessus) : son contenu
+// représente alors un seul jeu. En cas d'égalité (ex: une catégorie avec un
+// seul jeu en dossier et un seul en archive), on privilégie la catégorie
+// plutôt que de risquer d'avaler les deux dans un seul "jeu" fantôme. Un
+// dossier qui contient surtout d'autres dossiers de jeux (ex: Action/, RPG/...)
+// est traité comme une simple catégorie et on continue à descendre dedans ;
+// les fichiers isolés qu'il contient malgré tout (archives) sont listés
+// individuellement.
 function scanDir(absDir, relPrefix, imported, depth, entries) {
   let dirents;
   try {
