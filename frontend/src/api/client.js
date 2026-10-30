@@ -36,8 +36,8 @@ export const api = {
     request(`/metadata/search?q=${encodeURIComponent(q)}&provider=${provider}`),
   getMetadataDetails: (provider, externalId) => request(`/metadata/${provider}/${externalId}`),
   getMedia: (provider, externalId) => request(`/metadata/${provider}/${externalId}/media`),
-  browseCatalog: (provider = "rawg", page = 1) =>
-    request(`/metadata/browse?provider=${provider}&page=${page}`),
+  browseCatalog: (provider = "rawg", page = 1, mode = "all-time") =>
+    request(`/metadata/browse?provider=${provider}&page=${page}&mode=${mode}`),
 
   scanImport: () => request("/import/scan"),
   importGames: (names) => request("/import", { method: "POST", body: JSON.stringify({ names }) }),

@@ -2,6 +2,12 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
 import { DiscoverDetailModal } from "./DiscoverDetailModal.jsx";
 
+const BROWSE_MODES = [
+  { value: "new", label: "Nouveautés" },
+  { value: "trending", label: "Tendance" },
+  { value: "all-time", label: "Tout temps" },
+];
+
 export function DiscoverView() {
   const [providers, setProviders] = useState([]);
   const [provider, setProvider] = useState(null);
@@ -13,6 +19,7 @@ export function DiscoverView() {
   const [added, setAdded] = useState(new Set());
   const [adding, setAdding] = useState(null);
   const [detailResult, setDetailResult] = useState(null);
+  const [browseMode, setBrowseMode] = useState("trending");
 
   const canBrowse = provider === "rawg";
 
@@ -35,13 +42,13 @@ export function DiscoverView() {
       setResults([]);
       setLoading(false);
     }
-  }, [provider]);
+  }, [provider, browseMode]);
 
   async function loadBrowse(nextPage) {
     setLoading(true);
     setError(null);
     try {
-      const found = await api.browseCatalog(provider, nextPage);
+      const found = await api.browseCatalog(provider, nextPage, browseMode);
       setResults(found);
       setPage(nextPage);
     } catch (err) {
@@ -141,11 +148,27 @@ export function DiscoverView() {
         </button>
       </form>
 
-      {!query.trim() && (
+      {!query.trim() && canBrowse && (
+        <div className="flex gap-1 mb-4 border-b border-slate-800">
+          {BROWSE_MODES.map((m) => (
+            <button
+              key={m.value}
+              onClick={() => setBrowseMode(m.value)}
+              className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px ${
+                browseMode === m.value
+                  ? "border-indigo-500 text-white"
+                  : "border-transparent text-slate-400 hover:text-white"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!query.trim() && !canBrowse && (
         <p className="text-slate-400 text-sm mb-4">
-          {canBrowse
-            ? "Jeux PC tendance sur RAWG — ou tape une recherche ci-dessus."
-            : "Le parcours sans recherche n'est disponible que pour RAWG. Tape une recherche."}
+          Le parcours sans recherche n'est disponible que pour RAWG. Tape une recherche.
         </p>
       )}
 

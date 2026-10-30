@@ -20,14 +20,14 @@ metadataRouter.get("/search", async (req, res) => {
 });
 
 metadataRouter.get("/browse", async (req, res) => {
-  const { provider = "rawg", page = "1" } = req.query;
+  const { provider = "rawg", page = "1", mode = "all-time" } = req.query;
 
   try {
     const impl = getProvider(provider);
     if (!impl.browse) {
       return res.status(400).json({ error: `${provider} does not support browsing` });
     }
-    const results = await impl.browse(Number(page) || 1);
+    const results = await impl.browse(Number(page) || 1, mode);
     res.json(results);
   } catch (err) {
     res.status(502).json({ error: err.message });

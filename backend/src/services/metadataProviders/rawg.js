@@ -67,13 +67,32 @@ export const rawgProvider = {
     };
   },
 
-  async browse(page = 1) {
+  async browse(page = 1, mode = "all-time") {
     const url = new URL(`${BASE_URL}/games`);
     url.searchParams.set("key", apiKey());
-    url.searchParams.set("ordering", "-added");
     url.searchParams.set("page_size", "20");
     url.searchParams.set("page", String(page));
     url.searchParams.set("platforms", "4"); // RAWG platform id 4 = PC
+
+    const today = new Date().toISOString().slice(0, 10);
+    const daysAgo = (n) => {
+      const d = new Date();
+      d.setDate(d.getDate() - n);
+      return d.toISOString().slice(0, 10);
+    };
+
+    if (mode === "new") {
+      // Sorties récentes, triées par date de sortie.
+      url.searchParams.set("ordering", "-released");
+      url.searchParams.set("dates", `${daysAgo(60)},${today}`);
+    } else if (mode === "trending") {
+      // Jeux récents les plus populaires (proxy de "tendance", RAWG n'a pas de métrique dédiée).
+      url.searchParams.set("ordering", "-added");
+      url.searchParams.set("dates", `${daysAgo(90)},${today}`);
+    } else {
+      // all-time : popularité globale, sans filtre de date.
+      url.searchParams.set("ordering", "-added");
+    }
 
     const res = await fetch(url);
     if (!res.ok) throw new Error(`RAWG browse failed: ${res.status}`);
