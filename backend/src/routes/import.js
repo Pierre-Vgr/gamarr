@@ -18,10 +18,46 @@ async function tryEnrich(game) {
   }
 }
 
+// Groupes de release/repack scène fréquents, accolés sans espace en préfixe
+// (ex: "CODEX-Cities.Skylines...") ou en suffixe (ex: "Dragons.Dogma.2-Mephisto")
+// une fois les points remplacés par des espaces. Liste volontairement limitée à
+// des noms de groupes connus plutôt qu'un pattern générique sur "-mot final",
+// pour ne pas tronquer un vrai titre du type "Half-Life".
+const RELEASE_GROUPS = [
+  "fitgirl",
+  "codex",
+  "plaza",
+  "skidrow",
+  "reloaded",
+  "rune",
+  "flt",
+  "tenoke",
+  "empress",
+  "dodi",
+  "elamigos",
+  "razor1911",
+  "hoodlum",
+  "prophet",
+  "cpy",
+  "darksiders",
+  "simplex",
+  "fairlight",
+  "mephisto",
+  "goldberg",
+  "repack",
+  "p2p",
+  "gog",
+];
+const RELEASE_GROUP_PATTERN = RELEASE_GROUPS.join("|");
+const LEADING_GROUP_RE = new RegExp(`^(${RELEASE_GROUP_PATTERN})-`, "i");
+const TRAILING_GROUP_RE = new RegExp(`-(${RELEASE_GROUP_PATTERN})$`, "i");
+
 function cleanTitle(name) {
   let title = name.replace(/\.[a-zA-Z0-9]{1,4}$/, "");
   title = title.replace(/[._]+/g, " ");
   title = title.replace(/\s*[[(][^\])]*[\])]\s*/g, " ");
+  title = title.replace(LEADING_GROUP_RE, "");
+  title = title.replace(TRAILING_GROUP_RE, "");
   title = title.replace(/\s+/g, " ").trim();
   return title || name;
 }
@@ -128,6 +164,10 @@ function normalizeTitle(s) {
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
+    // Les apostrophes sont supprimées (pas remplacées par un espace) pour que
+    // "Dragon's Dogma" et "Dragons Dogma" (nom de dossier sans apostrophe,
+    // très fréquent) se normalisent tous les deux en "dragons dogma".
+    .replace(/['’`]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
