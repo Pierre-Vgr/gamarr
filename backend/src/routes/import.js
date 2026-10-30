@@ -9,15 +9,6 @@ import { getProvider, listProviders } from "../services/metadataProviders/index.
 
 export const importRouter = Router();
 
-async function tryEnrich(game) {
-  try {
-    return await enrichGame(game);
-  } catch (err) {
-    console.error(`Metadata enrichment failed for "${game.title}": ${err.message}`);
-    return game;
-  }
-}
-
 // Groupes de release/repack scène fréquents, accolés sans espace en préfixe
 // (ex: "CODEX-Cities.Skylines...") ou en suffixe (ex: "Dragons.Dogma.2-Mephisto")
 // une fois les points remplacés par des espaces. Liste volontairement limitée à
@@ -71,6 +62,31 @@ function alreadyImported() {
   );
 }
 
+// Un dossier déjà importé représente tout son contenu : si relPath est déjà
+// importé, en est un sous-élément, ou en est le parent, c'est un doublon —
+// aucun des trois ne doit être proposé ou accepté à l'import une deuxième fois.
+function pathOverlapReason(relPath, importedSet) {
+  for (const imported of importedSet) {
+    if (imported === relPath) return "already imported";
+    if (imported.startsWith(`${relPath}/`)) return "un sous-élément de ce chemin est déjà importé";
+    if (relPath.startsWith(`${imported}/`)) return "le dossier parent est déjà importé";
+  }
+  return null;
+}
+
+// Variante utilisée avant de décider de descendre dans un dossier catégorie :
+// seuls le match exact et le cas "parent déjà importé" rendent toute
+// l'arborescence redondante et justifient de ne pas la parcourir du tout. Le
+// cas "contient un sous-élément déjà importé" ne doit lui PAS bloquer la
+// descente, sous peine de cacher les autres éléments pas encore importés.
+function isFullyCovered(relPath, importedSet) {
+  for (const imported of importedSet) {
+    if (imported === relPath) return true;
+    if (relPath.startsWith(`${imported}/`)) return true;
+  }
+  return false;
+}
+
 // Limite la profondeur pour éviter une récursion incontrôlée (arborescence très
 // profonde, lien symbolique en boucle, etc.).
 const MAX_SCAN_DEPTH = 6;
@@ -117,18 +133,20 @@ function scanDir(absDir, relPrefix, imported, depth, entries) {
     const absPath = path.join(absDir, entry.name);
 
     if (entry.isDirectory()) {
+      if (isFullyCovered(relPath, imported)) continue;
+
       const { files, subdirs } = classifyDir(absPath);
       if (files === 0 && subdirs === 0) continue;
 
       if (depth >= MAX_SCAN_DEPTH || files > subdirs) {
-        if (!imported.has(relPath)) {
+        if (!pathOverlapReason(relPath, imported)) {
           entries.push({ name: relPath, title: cleanTitle(entry.name), isDirectory: true, sizeBytes: null });
         }
       } else {
         scanDir(absPath, relPath, imported, depth + 1, entries);
       }
     } else {
-      if (imported.has(relPath)) continue;
+      if (pathOverlapReason(relPath, imported)) continue;
       let sizeBytes = null;
       try {
         sizeBytes = fs.statSync(absPath).size;
@@ -293,8 +311,14 @@ importRouter.post("/entry", async (req, res) => {
   if (!fs.existsSync(absPath)) {
     return res.status(400).json({ error: "not found in libraryDir" });
   }
-  if (alreadyImported().has(name)) {
-    return res.status(409).json({ error: "Ce chemin a déjà été importé" });
+  const overlap = pathOverlapReason(name, alreadyImported());
+  if (overlap) {
+    return res.status(409).json({
+      error:
+        overlap === "already imported"
+          ? "Ce chemin a déjà été importé"
+          : `Ce chemin fait double emploi avec un import existant (${overlap})`,
+    });
   }
   if (provider && externalId && isDuplicateExternal(provider, externalId)) {
     return res.status(409).json({ error: "Ce jeu est déjà dans la bibliothèque" });
@@ -383,6 +407,8 @@ importRouter.post("/", async (req, res) => {
   }
 
   const imported = alreadyImported();
+  const provider = listProviders().find((p) => p.configured);
+  const providerImpl = provider ? getProvider(provider.id) : null;
 
   const created = [];
   const skipped = [];
@@ -397,15 +423,43 @@ importRouter.post("/", async (req, res) => {
       skipped.push({ name, reason: "not found in libraryDir" });
       continue;
     }
-    if (imported.has(name)) {
-      skipped.push({ name, reason: "already imported" });
+    const overlap = pathOverlapReason(name, imported);
+    if (overlap) {
+      skipped.push({ name, reason: overlap });
       continue;
     }
 
     const title = cleanTitle(path.basename(name));
+
+    // Même prudence que l'import intelligent : seule une correspondance de
+    // titre exacte (et pas déjà utilisée par un autre jeu) est attachée.
+    // L'entrée est importée dans tous les cas — c'est l'intérêt de "Tout
+    // importer" — mais sans métadonnées erronées en cas de doute, modifiable
+    // plus tard depuis la fiche.
+    let match = null;
+    if (providerImpl) {
+      try {
+        const results = await providerImpl.search(title);
+        const candidate = findConfidentMatch(title, results);
+        if (candidate && !isDuplicateExternal(provider.id, candidate.externalId)) {
+          match = candidate;
+        }
+      } catch (err) {
+        console.error(`Metadata search failed for "${title}": ${err.message}`);
+      }
+    }
+
     const result = insertImported.run({ title, import_path: name });
-    const game = serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(result.lastInsertRowid));
-    created.push(await tryEnrich(game));
+    let game = serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(result.lastInsertRowid));
+    if (match) {
+      try {
+        game = await enrichGame(game, { externalId: match.externalId, providerId: provider.id });
+      } catch (err) {
+        console.error(`Metadata enrichment failed for "${game.title}": ${err.message}`);
+      }
+    }
+    imported.add(name);
+    created.push(game);
   }
 
   res.status(201).json({ created, skipped });
