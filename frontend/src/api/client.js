@@ -23,6 +23,7 @@ export const api = {
     ).toString();
     return request(`/games${query ? `?${query}` : ""}`);
   },
+  getGameFacets: () => request("/games/facets"),
   getGame: (id) => request(`/games/${id}`),
   createGame: (data) => request("/games", { method: "POST", body: JSON.stringify(data) }),
   updateGame: (id, data) => request(`/games/${id}`, { method: "PUT", body: JSON.stringify(data) }),

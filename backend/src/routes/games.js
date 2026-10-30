@@ -8,17 +8,21 @@ export const gamesRouter = Router();
 const STATUSES = ["wishlist", "backlog", "playing", "completed", "abandoned"];
 
 gamesRouter.get("/", (req, res) => {
-  const { status, platform, search, sort = "title" } = req.query;
+  const { status, platform, search, source, genre, sort = "title" } = req.query;
 
   let rows = db.prepare("SELECT * FROM games").all();
 
   if (status) rows = rows.filter((r) => r.status === status);
+  if (source) rows = rows.filter((r) => r.source === source);
   if (search) {
     const needle = search.toLowerCase();
     rows = rows.filter((r) => r.title.toLowerCase().includes(needle));
   }
   if (platform) {
     rows = rows.filter((r) => JSON.parse(r.platforms || "[]").includes(platform));
+  }
+  if (genre) {
+    rows = rows.filter((r) => JSON.parse(r.genres || "[]").includes(genre));
   }
 
   const games = rows.map(serialize);
@@ -27,10 +31,27 @@ gamesRouter.get("/", (req, res) => {
     if (sort === "created_at") return a.created_at < b.created_at ? 1 : -1;
     if (sort === "release_date") return (b.release_date || "") > (a.release_date || "") ? 1 : -1;
     if (sort === "rating") return (b.rating || 0) - (a.rating || 0);
+    if (sort === "source") return (a.source || "").localeCompare(b.source || "");
     return a.title.localeCompare(b.title);
   });
 
   res.json(games);
+});
+
+gamesRouter.get("/facets", (req, res) => {
+  const rows = db.prepare("SELECT source, genres FROM games").all();
+  const sources = new Set();
+  const genres = new Set();
+
+  for (const r of rows) {
+    if (r.source) sources.add(r.source);
+    for (const g of JSON.parse(r.genres || "[]")) genres.add(g);
+  }
+
+  res.json({
+    sources: [...sources].sort(),
+    genres: [...genres].sort(),
+  });
 });
 
 gamesRouter.get("/:id", (req, res) => {
