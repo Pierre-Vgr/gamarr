@@ -5,6 +5,7 @@ import { db } from "../db/index.js";
 import { serializeGame } from "../models/game.js";
 import { LIBRARY_DIR } from "../config/paths.js";
 import { enrichGame } from "../services/enrich.js";
+import { getProvider, listProviders } from "../services/metadataProviders/index.js";
 
 export const importRouter = Router();
 
@@ -121,6 +122,95 @@ function isSafeRelativePath(name) {
   const segments = name.split("/");
   return segments.every((seg) => seg !== "" && seg !== "." && seg !== "..");
 }
+
+function normalizeTitle(s) {
+  return (s || "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Un match n'est "fiable" que si le titre nettoyé du dossier/fichier correspond
+// exactement (une fois normalisé) au titre d'un résultat de recherche. Pas de
+// correspondance approximative : en cas de doute, on laisse l'entrée pour un
+// tri manuel plutôt que de risquer d'associer les mauvaises métadonnées.
+function findConfidentMatch(title, results) {
+  const target = normalizeTitle(title);
+  if (!target) return null;
+  return results.find((r) => normalizeTitle(r.title) === target) || null;
+}
+
+function isDuplicateExternal(source, externalId) {
+  if (!externalId) return false;
+  return Boolean(
+    db.prepare("SELECT id FROM games WHERE source = ? AND external_id = ?").get(source, externalId)
+  );
+}
+
+// Import "intelligent" : scanne la ludothèque et n'ajoute automatiquement que les
+// entrées sans ambiguïté — un match de titre exact chez le provider de métadonnées
+// configuré, et pas déjà présentes en bibliothèque. Tout le reste (titre ambigu,
+// pas de résultat, release déjà possédée sous un autre nom de dossier) est laissé
+// de côté pour un tri manuel, pour éviter le travail fastidieux sur une grosse
+// ludothèque tout en restant fiable.
+importRouter.post("/smart", async (req, res) => {
+  if (!fs.existsSync(LIBRARY_DIR)) {
+    return res.status(400).json({ error: "libraryDir is not accessible" });
+  }
+
+  const provider = listProviders().find((p) => p.configured);
+  if (!provider) {
+    return res.status(400).json({ error: "Aucun provider de métadonnées configuré" });
+  }
+  const providerImpl = getProvider(provider.id);
+
+  const imported = alreadyImported();
+  const scanned = [];
+  scanDir(LIBRARY_DIR, "", imported, 0, scanned);
+
+  const insert = db.prepare(`
+    INSERT INTO games (title, platforms, status, genres, source, import_path)
+    VALUES (@title, '[]', 'backlog', '[]', 'import', @import_path)
+  `);
+
+  const created = [];
+  const skipped = [];
+
+  for (const entry of scanned) {
+    let results;
+    try {
+      results = await providerImpl.search(entry.title);
+    } catch (err) {
+      skipped.push({ name: entry.name, reason: `recherche échouée: ${err.message}` });
+      continue;
+    }
+
+    const match = findConfidentMatch(entry.title, results);
+    if (!match) {
+      skipped.push({ name: entry.name, reason: "pas de correspondance fiable" });
+      continue;
+    }
+
+    if (isDuplicateExternal(provider.id, match.externalId)) {
+      skipped.push({ name: entry.name, reason: "déjà présent en bibliothèque" });
+      continue;
+    }
+
+    const result = insert.run({ title: cleanTitle(path.basename(entry.name)), import_path: entry.name });
+    let game = serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(result.lastInsertRowid));
+    try {
+      game = await enrichGame(game, { externalId: match.externalId, providerId: provider.id });
+    } catch (err) {
+      console.error(`Metadata enrichment failed for "${game.title}": ${err.message}`);
+    }
+    created.push(game);
+  }
+
+  res.status(201).json({ created, skipped, totalScanned: scanned.length });
+});
 
 importRouter.post("/", async (req, res) => {
   const { names } = req.body;

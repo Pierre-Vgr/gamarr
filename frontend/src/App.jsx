@@ -231,6 +231,7 @@ export default function App() {
               setShowImport(false);
               load();
             }}
+            onRefresh={load}
           />
         )}
 

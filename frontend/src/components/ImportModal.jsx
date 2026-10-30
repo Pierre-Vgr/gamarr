@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
 import { formatSize } from "../utils/format.js";
 
-export function ImportModal({ onClose, onImported }) {
+export function ImportModal({ onClose, onImported, onRefresh }) {
   const [scan, setScan] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState(null);
+  const [smartRunning, setSmartRunning] = useState(false);
+  const [smartResult, setSmartResult] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -56,10 +58,54 @@ export function ImportModal({ onClose, onImported }) {
     }
   }
 
+  async function handleSmartImport() {
+    setSmartRunning(true);
+    setError(null);
+    setSmartResult(null);
+    try {
+      const result = await api.smartImport();
+      setSmartResult(result);
+      setSelected(new Set());
+      onRefresh?.();
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSmartRunning(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
       <div className="bg-slate-900 rounded-lg w-full max-w-xl max-h-[85vh] overflow-y-auto p-6">
-        <h2 className="text-xl font-semibold mb-4">Importer depuis le dossier des jeux</h2>
+        <h2 className="text-xl font-semibold mb-2">Importer depuis le dossier des jeux</h2>
+
+        {!loading && scan?.exists && scan.entries.length > 0 && (
+          <div className="bg-slate-800 rounded-lg p-3 mb-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-xs text-slate-400 flex-1 min-w-[200px]">
+                Ajoute automatiquement les jeux dont le titre correspond exactement à une
+                fiche existante chez le fournisseur de métadonnées configuré, et qui ne sont
+                pas déjà en bibliothèque. Le reste est laissé pour un tri manuel.
+              </p>
+              <button
+                onClick={handleSmartImport}
+                disabled={smartRunning || importing}
+                className="px-4 py-2 rounded bg-emerald-700 hover:bg-emerald-600 font-medium disabled:opacity-50 shrink-0"
+              >
+                {smartRunning ? "Analyse en cours..." : "Import intelligent"}
+              </button>
+            </div>
+
+            {smartResult && (
+              <p className="text-xs mt-2">
+                <span className="text-emerald-400">{smartResult.created.length} ajouté(s)</span>
+                {" · "}
+                <span className="text-slate-400">{smartResult.skipped.length} laissé(s) pour tri manuel</span>
+              </p>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <p className="text-slate-400">Analyse du dossier...</p>
@@ -121,10 +167,17 @@ export function ImportModal({ onClose, onImported }) {
           </p>
         )}
 
+        {smartRunning && (
+          <p className="text-slate-400 text-sm mt-2">
+            Analyse et récupération des métadonnées en cours, ça peut prendre un moment sur
+            une grosse ludothèque...
+          </p>
+        )}
+
         <div className="flex justify-end gap-2 pt-4">
           <button
             onClick={onClose}
-            disabled={importing}
+            disabled={importing || smartRunning}
             className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-50"
           >
             Fermer
@@ -133,14 +186,14 @@ export function ImportModal({ onClose, onImported }) {
             <>
               <button
                 onClick={() => handleImport(scan.entries.map((e) => e.name))}
-                disabled={importing}
+                disabled={importing || smartRunning}
                 className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 font-medium disabled:opacity-50"
               >
                 {importing ? "Import..." : `Tout importer (${scan.entries.length})`}
               </button>
               <button
                 onClick={() => handleImport(Array.from(selected))}
-                disabled={importing || selected.size === 0}
+                disabled={importing || smartRunning || selected.size === 0}
                 className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium disabled:opacity-50"
               >
                 {importing ? "Import..." : `Importer la sélection (${selected.size})`}
