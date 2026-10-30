@@ -281,6 +281,12 @@ function scanDir(absDir, relPrefix, imported, depth, entries) {
     if (entry.isDirectory()) {
       if (isFullyCovered(relPath, imported)) continue;
 
+      // Un dossier générique (DLC, Crack, Patch, Data...) fait partie du jeu
+      // parent : on ne l'explore jamais comme une catégorie séparée, sinon ses
+      // propres sous-dossiers (ex: chaque pack de DLC) ressortent comme autant
+      // de faux jeux individuels.
+      if (GENERIC_SUBFOLDER_NAMES.has(entry.name.toLowerCase())) continue;
+
       const { files, subdirs } = classifyDir(absPath);
       if (files === 0 && subdirs === 0) continue;
 
@@ -394,18 +400,30 @@ function isSafeRelativePath(name) {
   return segments.every((seg) => seg !== "" && seg !== "." && seg !== "..");
 }
 
-function normalizeTitle(s) {
+function normalizeBase(s) {
   return (s || "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    // Les apostrophes sont supprimées (pas remplacées par un espace) pour que
-    // "Dragon's Dogma" et "Dragons Dogma" (nom de dossier sans apostrophe,
-    // très fréquent) se normalisent tous les deux en "dragons dogma".
-    .replace(/['’`]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .toLowerCase();
+}
+
+function finishNormalize(s) {
+  return s.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Deux conventions différentes existent pour un titre possessif selon qui a
+// nommé le dossier : "Dragons Dogma" (apostrophe supprimée, le "s" reste,
+// très fréquent) ou "Marvel Spider-Man" au lieu de "Marvel's Spider-Man" (le
+// "'s" entier est supprimé). Comme on ne peut pas savoir laquelle s'applique,
+// les deux variantes sont calculées et un match est accepté si l'une
+// quelconque des variantes de la cible correspond à l'une quelconque des
+// variantes du résultat — toujours une égalité exacte sur le texte obtenu,
+// jamais une tolérance floue sur autre chose que cette apostrophe précise.
+function normalizeTitleVariants(s) {
+  const base = normalizeBase(s);
+  const apostropheOnly = finishNormalize(base.replace(/['’`]/g, ""));
+  const possessive = finishNormalize(base.replace(/['’`]s\b/gi, "").replace(/['’`]/g, ""));
+  return apostropheOnly === possessive ? [apostropheOnly] : [apostropheOnly, possessive];
 }
 
 // Un match n'est "fiable" que si le titre nettoyé du dossier/fichier correspond
@@ -413,9 +431,14 @@ function normalizeTitle(s) {
 // correspondance approximative : en cas de doute, on laisse l'entrée pour un
 // tri manuel plutôt que de risquer d'associer les mauvaises métadonnées.
 function findConfidentMatch(title, results) {
-  const target = normalizeTitle(title);
-  if (!target) return null;
-  return results.find((r) => normalizeTitle(r.title) === target) || null;
+  const targets = normalizeTitleVariants(title);
+  if (targets.every((t) => !t)) return null;
+  return (
+    results.find((r) => {
+      const candidates = normalizeTitleVariants(r.title);
+      return targets.some((t) => candidates.includes(t));
+    }) || null
+  );
 }
 
 // Pour le diagnostic affiché à l'utilisateur quand aucun match fiable n'est
