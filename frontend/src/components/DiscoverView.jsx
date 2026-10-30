@@ -73,7 +73,7 @@ export function DiscoverView() {
     setError(null);
     try {
       const details = await api.getMetadataDetails(result.source, result.externalId);
-      await api.createGame({
+      const created = await api.createGame({
         title: details.title,
         platforms: details.platforms,
         status: "wishlist",
@@ -84,6 +84,17 @@ export function DiscoverView() {
         source: details.source,
         externalId: details.externalId,
       });
+
+      // Backfille stores/Proton/Metacritic (createGame ne les remplit pas), best-effort.
+      try {
+        await api.refreshMetadata(created.id, {
+          provider: details.source,
+          externalId: details.externalId,
+        });
+      } catch {
+        // Pas bloquant : le jeu reste ajouté même si l'enrichissement échoue.
+      }
+
       setAdded((prev) => new Set(prev).add(result.externalId));
     } catch (err) {
       if (err.status === 409) {
