@@ -96,6 +96,11 @@ export function ImportModal({ onClose, onImported }) {
                       className="shrink-0"
                     />
                     <span className="flex-1 truncate" title={entry.name}>
+                      {entry.name.includes("/") && (
+                        <span className="text-slate-500">
+                          {entry.name.slice(0, entry.name.lastIndexOf("/") + 1)}
+                        </span>
+                      )}
                       {entry.title}
                     </span>
                     <span className="text-xs text-slate-500 shrink-0">
