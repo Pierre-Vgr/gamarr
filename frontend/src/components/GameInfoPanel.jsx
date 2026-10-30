@@ -1,6 +1,7 @@
 import { StatusBadge } from "./StatusBadge.jsx";
 import { ProtonBadge } from "./ProtonBadge.jsx";
 import { MetacriticBadge } from "./MetacriticBadge.jsx";
+import { AcquisitionBadge } from "./AcquisitionBadge.jsx";
 
 export function GameInfoPanel({
   title,
@@ -9,6 +10,7 @@ export function GameInfoPanel({
   releaseDate,
   genres,
   status,
+  availability,
   stores,
   protonTier,
   metacriticScore,
@@ -17,6 +19,7 @@ export function GameInfoPanel({
   description,
   notes,
   personalRating,
+  importPath,
   screenshots,
   trailers,
 }) {
@@ -37,13 +40,23 @@ export function GameInfoPanel({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <h2 className="text-xl font-semibold">{title}</h2>
-            {status && <StatusBadge status={status} />}
+            {status &&
+              (status === "wishlist" ? (
+                <AcquisitionBadge game={{ status, release_date: releaseDate, availability }} />
+              ) : (
+                <StatusBadge status={status} />
+              ))}
           </div>
           <p className="text-sm text-slate-400 mt-1">
             {platforms?.join(", ") || "Plateforme inconnue"}
             {releaseDate && ` · ${releaseDate.slice(0, 4)}`}
           </p>
           {genres?.length > 0 && <p className="text-sm text-slate-500 mt-1">{genres.join(", ")}</p>}
+          {importPath && (
+            <p className="text-xs text-slate-500 mt-1 break-all" title={importPath}>
+              📁 {importPath}
+            </p>
+          )}
           {(stores?.length > 0 || protonTier) && (
             <div className="flex flex-wrap gap-1 mt-2">
               {stores?.map((s) => (

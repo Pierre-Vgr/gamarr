@@ -7,12 +7,11 @@ import { ImportView } from "./components/ImportView.jsx";
 import { DiscoverView } from "./components/DiscoverView.jsx";
 import { ReleaseSearchModal } from "./components/ReleaseSearchModal.jsx";
 import { SettingsView } from "./components/SettingsView.jsx";
-import { LIBRARY_STATUS_OPTIONS } from "./components/StatusBadge.jsx";
+import { STATUS_OPTIONS } from "./components/StatusBadge.jsx";
 
 const NAV_ITEMS = [
   { id: "library", label: "Bibliothèque" },
   { id: "import", label: "Importer" },
-  { id: "wishlist", label: "Wishlist" },
   { id: "discover", label: "Découvrir" },
   { id: "settings", label: "Paramètres" },
 ];
@@ -33,8 +32,10 @@ export default function App() {
   const [detailGame, setDetailGame] = useState(null);
   const [releaseSearchGame, setReleaseSearchGame] = useState(null);
   const [prowlarrConfigured, setProwlarrConfigured] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
-  const isGridView = view === "library" || view === "wishlist";
+  const isGridView = view === "library";
 
   useEffect(() => {
     api
@@ -61,21 +62,24 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const effectiveStatus = view === "wishlist" ? "wishlist" : status;
-      const params = { search, status: effectiveStatus, sort, source, genre };
+      const params = { search, status, sort, source, genre };
       const data = await api.listGames(params);
-      setGames(view === "library" ? data.filter((g) => g.status !== "wishlist") : data);
+      setGames(data);
       api.getGameFacets().then(setFacets).catch(() => {});
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [search, status, source, genre, sort, view, isGridView]);
+  }, [search, status, source, genre, sort, isGridView]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [view]);
 
   async function handleDelete(game) {
     if (!confirm(`Supprimer "${game.title}" de la bibliothèque ?`)) return;
@@ -85,6 +89,44 @@ export default function App() {
 
   function handleRefreshed(updatedGame) {
     setGames((prev) => prev.map((g) => (g.id === updatedGame.id ? updatedGame : g)));
+  }
+
+  function toggleSelectGame(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkStatus(newStatus) {
+    if (!newStatus || selectedIds.size === 0) return;
+    setBulkBusy(true);
+    try {
+      await api.bulkUpdateStatus(Array.from(selectedIds), newStatus);
+      setSelectedIds(new Set());
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Supprimer ${selectedIds.size} jeu(x) de la bibliothèque ?`)) return;
+    setBulkBusy(true);
+    try {
+      await api.bulkDeleteGames(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      await load();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBulkBusy(false);
+    }
   }
 
   if (!ready) return null;
@@ -136,20 +178,18 @@ export default function App() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              {view === "library" && (
-                <select
-                  className="bg-slate-800 rounded px-3 py-2"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="">Tous les statuts</option>
-                  {LIBRARY_STATUS_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              )}
+              <select
+                className="bg-slate-800 rounded px-3 py-2"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="">Tous les statuts</option>
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
               <select
                 className="bg-slate-800 rounded px-3 py-2"
                 value={source}
@@ -189,16 +229,57 @@ export default function App() {
 
             {error && <p className="text-red-400 mb-4">{error}</p>}
 
+            {selectedIds.size > 0 && (
+              <div className="flex items-center justify-between gap-3 bg-slate-800 rounded-lg p-2 mb-4 text-sm">
+                <span className="text-slate-300">{selectedIds.size} sélectionné(s)</span>
+                <div className="flex gap-2 shrink-0 items-center">
+                  <select
+                    disabled={bulkBusy}
+                    defaultValue=""
+                    onChange={(e) => handleBulkStatus(e.target.value)}
+                    className="bg-slate-700 rounded px-2 py-1 text-xs disabled:opacity-50"
+                  >
+                    <option value="" disabled>
+                      Changer le statut...
+                    </option>
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={bulkBusy}
+                    className="px-3 py-1 rounded bg-red-900 hover:bg-red-800 text-xs font-medium disabled:opacity-50"
+                  >
+                    Supprimer
+                  </button>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    disabled={bulkBusy}
+                    className="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs disabled:opacity-50"
+                  >
+                    Vider
+                  </button>
+                </div>
+              </div>
+            )}
+
             {loading ? (
               <p className="text-slate-400">Chargement...</p>
             ) : games.length === 0 ? (
-              <p className="text-slate-400">
-                {view === "wishlist" ? "Aucun jeu en wishlist." : "Aucun jeu dans la bibliothèque pour le moment."}
-              </p>
+              <p className="text-slate-400">Aucun jeu dans la bibliothèque pour le moment.</p>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {games.map((game) => (
-                  <GameCard key={game.id} game={game} onOpen={setDetailGame} />
+                  <GameCard
+                    key={game.id}
+                    game={game}
+                    onOpen={setDetailGame}
+                    selected={selectedIds.has(game.id)}
+                    onToggleSelect={toggleSelectGame}
+                  />
                 ))}
               </div>
             )}
@@ -208,7 +289,6 @@ export default function App() {
         {modalGame !== undefined && (
           <GameFormModal
             game={modalGame}
-            defaultStatus={view === "wishlist" ? "wishlist" : "backlog"}
             onClose={() => setModalGame(undefined)}
             onSaved={() => {
               setModalGame(undefined);
@@ -218,7 +298,11 @@ export default function App() {
         )}
 
         {releaseSearchGame && (
-          <ReleaseSearchModal game={releaseSearchGame} onClose={() => setReleaseSearchGame(null)} />
+          <ReleaseSearchModal
+            game={releaseSearchGame}
+            onClose={() => setReleaseSearchGame(null)}
+            onUpdated={handleRefreshed}
+          />
         )}
 
         {detailGame && (

@@ -121,6 +121,9 @@ gamesRouter.put("/:id", (req, res) => {
     genres: JSON.stringify(body.genres ?? JSON.parse(existing.genres)),
     rating: body.rating ?? existing.rating,
     notes: body.notes ?? existing.notes,
+    // Explicitement remis à null quand une recherche Prowlarr trouve des
+    // résultats : `??` ignorerait ce null et garderait l'ancienne valeur.
+    availability: body.availability !== undefined ? body.availability : existing.availability,
     source: existing.source,
     external_id: existing.external_id,
     id: req.params.id,
@@ -130,7 +133,7 @@ gamesRouter.put("/:id", (req, res) => {
     UPDATE games SET
       title = @title, platforms = @platforms, status = @status, cover_url = @cover_url,
       description = @description, release_date = @release_date, genres = @genres,
-      rating = @rating, notes = @notes, updated_at = datetime('now')
+      rating = @rating, notes = @notes, availability = @availability, updated_at = datetime('now')
     WHERE id = @id
   `).run(merged);
 
@@ -156,4 +159,38 @@ gamesRouter.delete("/:id", (req, res) => {
   const result = db.prepare("DELETE FROM games WHERE id = ?").run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: "Game not found" });
   res.status(204).end();
+});
+
+// Actions groupées pour la sélection multiple dans la grille (bibliothèque fusionnée).
+gamesRouter.patch("/bulk/status", (req, res) => {
+  const { ids, status } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "ids must be a non-empty array" });
+  }
+  if (!STATUSES.includes(status)) {
+    return res.status(400).json({ error: `status must be one of ${STATUSES.join(", ")}` });
+  }
+
+  const stmt = db.prepare("UPDATE games SET status = ?, updated_at = datetime('now') WHERE id = ?");
+  const applyAll = db.transaction((rows) => {
+    for (const id of rows) stmt.run(status, id);
+  });
+  applyAll(ids);
+
+  res.json({ updated: ids.length });
+});
+
+gamesRouter.post("/bulk-delete", (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "ids must be a non-empty array" });
+  }
+
+  const stmt = db.prepare("DELETE FROM games WHERE id = ?");
+  const applyAll = db.transaction((rows) => {
+    for (const id of rows) stmt.run(id);
+  });
+  applyAll(ids);
+
+  res.json({ deleted: ids.length });
 });

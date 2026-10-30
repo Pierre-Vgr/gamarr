@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
 import { formatSize } from "../utils/format.js";
 
-export function ReleaseSearchModal({ game, onClose }) {
+export function ReleaseSearchModal({ game, onClose, onUpdated }) {
   const [query, setQuery] = useState(game.title);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,6 +25,12 @@ export function ReleaseSearchModal({ game, onClose }) {
       const found = await api.searchReleases(query);
       found.sort((a, b) => (b.seeders || 0) - (a.seeders || 0));
       setResults(found);
+      // Trace la disponibilité pour le badge de statut (sorti mais aucune
+      // release trouvée = "pas disponible"), best-effort.
+      api
+        .updateGame(game.id, { availability: found.length === 0 ? "unavailable" : null })
+        .then(onUpdated)
+        .catch(() => {});
     } catch (err) {
       setError(err.message);
     } finally {

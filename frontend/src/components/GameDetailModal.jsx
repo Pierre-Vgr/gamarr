@@ -60,6 +60,8 @@ export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, 
           releaseDate={current.release_date}
           genres={current.genres}
           status={current.status}
+          availability={current.availability}
+          importPath={current.import_path}
           stores={current.stores}
           protonTier={current.proton_tier}
           metacriticScore={current.metacritic_score}

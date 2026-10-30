@@ -28,6 +28,9 @@ export const api = {
   createGame: (data) => request("/games", { method: "POST", body: JSON.stringify(data) }),
   updateGame: (id, data) => request(`/games/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteGame: (id) => request(`/games/${id}`, { method: "DELETE" }),
+  bulkUpdateStatus: (ids, status) =>
+    request("/games/bulk/status", { method: "PATCH", body: JSON.stringify({ ids, status }) }),
+  bulkDeleteGames: (ids) => request("/games/bulk-delete", { method: "POST", body: JSON.stringify({ ids }) }),
   refreshMetadata: (id, data = {}) =>
     request(`/games/${id}/refresh-metadata`, { method: "POST", body: JSON.stringify(data) }),
 

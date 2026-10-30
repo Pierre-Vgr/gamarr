@@ -50,6 +50,9 @@ addColumnIfMissing("proton_tier", "TEXT");
 addColumnIfMissing("metacritic_score", "INTEGER");
 addColumnIfMissing("community_rating", "INTEGER");
 addColumnIfMissing("ratings_count", "INTEGER");
+// Vu après une recherche Prowlarr explicite depuis la fiche sans aucun résultat :
+// 'unavailable', ou NULL si jamais vérifié / des résultats ont été trouvés.
+addColumnIfMissing("availability", "TEXT");
 
 db.exec(
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_games_import_path ON games(import_path) WHERE import_path IS NOT NULL"
