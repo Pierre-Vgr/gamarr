@@ -230,15 +230,22 @@ const GENERIC_SUBFOLDER_NAMES = new Set([
   "fonts",
 ]);
 
+// Une archive "autonome" (zip/rar/7z/iso) représente, à elle seule, un jeu
+// complet. Un volume de continuation (.r00, .7z.002, .part2.rar...) ne
+// matche jamais ce motif (il se termine par un numéro, pas par l'extension),
+// donc chaque release — même en plusieurs volumes — ne compte qu'une fois.
+const STANDALONE_ARCHIVE_RE = /\.(zip|rar|7z|iso)$/i;
+
 function classifyDir(absDir) {
   let dirents;
   try {
     dirents = fs.readdirSync(absDir, { withFileTypes: true });
   } catch {
-    return { files: 0, subdirs: 0 };
+    return { files: 0, subdirs: 0, standaloneArchives: 0 };
   }
   let files = 0;
   let subdirs = 0;
+  let standaloneArchives = 0;
   for (const entry of dirents) {
     if (entry.name.startsWith(".")) continue;
     if (entry.isDirectory()) {
@@ -249,9 +256,10 @@ function classifyDir(absDir) {
       // Les volumes suivants d'une même archive (.part2.rar, .r01, .7z.002...)
       // ne comptent pas comme des fichiers distincts : c'est une seule release.
       files++;
+      if (STANDALONE_ARCHIVE_RE.test(entry.name)) standaloneArchives++;
     }
   }
-  return { files, subdirs };
+  return { files, subdirs, standaloneArchives };
 }
 
 // Un dossier est traité comme un "dossier de jeu" (ex: Action/Baldurs Gate 3/
@@ -287,10 +295,16 @@ function scanDir(absDir, relPrefix, imported, depth, entries) {
       // de faux jeux individuels.
       if (GENERIC_SUBFOLDER_NAMES.has(entry.name.toLowerCase())) continue;
 
-      const { files, subdirs } = classifyDir(absPath);
+      const { files, subdirs, standaloneArchives } = classifyDir(absPath);
       if (files === 0 && subdirs === 0) continue;
 
-      if (depth >= MAX_SCAN_DEPTH || files > subdirs) {
+      // Plusieurs archives autonomes côte à côte (ex: "GOG/Jeu1.zip",
+      // "GOG/Jeu2.zip"...) sont plusieurs jeux différents, même sans aucun
+      // sous-dossier : il ne faut pas fusionner tout le dossier "GOG" en une
+      // seule fausse fiche cherchant littéralement "GOG" ou "STEAMRIP".
+      const looksLikeArchiveCategory = standaloneArchives > 1;
+
+      if (depth >= MAX_SCAN_DEPTH || (files > subdirs && !looksLikeArchiveCategory)) {
         if (!pathOverlapReason(relPath, imported)) {
           entries.push({ name: relPath, title: cleanTitle(entry.name), isDirectory: true, sizeBytes: null });
         }
