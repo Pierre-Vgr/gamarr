@@ -75,6 +75,9 @@ export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, 
                 Chercher une release
               </button>
             )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               onClick={handleDelete}
               className="px-4 py-2 rounded text-red-400 border border-red-900 hover:bg-red-950 font-medium"
@@ -89,7 +92,7 @@ export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, 
             </button>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-3 mt-1 border-t border-slate-800">
             <button onClick={onClose} className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600">
               Fermer
             </button>
