@@ -100,6 +100,12 @@ export default function App() {
     });
   }
 
+  const allGamesSelected = games.length > 0 && games.every((g) => selectedIds.has(g.id));
+
+  function toggleSelectAllGames() {
+    setSelectedIds(allGamesSelected ? new Set() : new Set(games.map((g) => g.id)));
+  }
+
   async function handleBulkStatus(newStatus) {
     if (!newStatus || selectedIds.size === 0) return;
     setBulkBusy(true);
@@ -228,6 +234,14 @@ export default function App() {
             </div>
 
             {error && <p className="text-red-400 mb-4">{error}</p>}
+
+            {games.length > 0 && (
+              <div className="mb-2">
+                <button onClick={toggleSelectAllGames} className="text-sm text-indigo-400 hover:underline">
+                  {allGamesSelected ? "Tout désélectionner" : "Tout sélectionner"}
+                </button>
+              </div>
+            )}
 
             {selectedIds.size > 0 && (
               <div className="flex items-center justify-between gap-3 bg-slate-800 rounded-lg p-2 mb-4 text-sm">
