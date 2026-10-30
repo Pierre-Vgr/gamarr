@@ -153,6 +153,62 @@ importRouter.get("/scan", (req, res) => {
   res.json({ libraryDir: LIBRARY_DIR, exists: true, entries });
 });
 
+// Liste le contenu d'un seul niveau de la ludothèque (pas de récursion), pour
+// une navigation façon explorateur de fichiers. Contrairement à /scan (qui
+// devine quels dossiers représentent un jeu entier), chaque fichier et chaque
+// dossier est toujours listé tel qu'il est sur le disque : aucune heuristique
+// ne peut donc faire disparaître une archive ou un sous-dossier.
+importRouter.get("/browse", (req, res) => {
+  const relPath = typeof req.query.path === "string" ? req.query.path : "";
+
+  if (!fs.existsSync(LIBRARY_DIR)) {
+    return res.json({ libraryDir: LIBRARY_DIR, exists: false, path: "", parent: null, entries: [] });
+  }
+
+  const absPath = relPath === "" ? path.resolve(LIBRARY_DIR) : resolveLibraryPath(relPath);
+  if (!absPath || !fs.existsSync(absPath) || !fs.statSync(absPath).isDirectory()) {
+    return res.status(400).json({ error: "invalid path" });
+  }
+
+  const imported = alreadyImported();
+  let dirents;
+  try {
+    dirents = fs.readdirSync(absPath, { withFileTypes: true });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+
+  const entries = dirents
+    .filter((entry) => !entry.name.startsWith("."))
+    .map((entry) => {
+      const entryRelPath = relPath ? `${relPath}/${entry.name}` : entry.name;
+      const isDirectory = entry.isDirectory();
+      let sizeBytes = null;
+      if (!isDirectory) {
+        try {
+          sizeBytes = fs.statSync(path.join(absPath, entry.name)).size;
+        } catch {
+          sizeBytes = null;
+        }
+      }
+      return {
+        name: entryRelPath,
+        title: cleanTitle(entry.name),
+        isDirectory,
+        sizeBytes,
+        alreadyImported: imported.has(entryRelPath),
+      };
+    })
+    .sort((a, b) => {
+      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+      return a.title.localeCompare(b.title);
+    });
+
+  const parent = relPath ? relPath.split("/").slice(0, -1).join("/") : null;
+
+  res.json({ libraryDir: LIBRARY_DIR, exists: true, path: relPath, parent, entries });
+});
+
 // Accepte un chemin relatif éventuellement composé de plusieurs segments
 // (ex: "Action/Baldurs Gate 3") pour supporter les sous-dossiers, tout en
 // rejetant tout segment "." / ".." ou chemin absolu (path traversal).
