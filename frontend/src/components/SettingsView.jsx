@@ -142,6 +142,21 @@ export function SettingsView() {
     <div className="max-w-xl">
       <h2 className="text-lg font-semibold mb-4">Intégrations</h2>
 
+      {form?.firstRun && (
+        <div className="bg-indigo-950 border border-indigo-800 rounded-lg p-4 mb-6">
+          <p className="font-medium mb-1">Bienvenue sur Gamarr 👋</p>
+          <p className="text-sm text-slate-300">
+            Aucun fichier <code className="text-slate-400">config/secrets.json</code> n'a encore été
+            créé. Renseigne au moins la clé API RAWG ci-dessous pour activer la recherche de
+            métadonnées (gratuite sur{" "}
+            <a href="https://rawg.io/apidocs" target="_blank" rel="noreferrer" className="underline">
+              rawg.io/apidocs
+            </a>
+            ) — le reste (IGDB, Prowlarr) est optionnel et peut se faire plus tard.
+          </p>
+        </div>
+      )}
+
       {error && <p className="text-red-400 mb-4">{error}</p>}
 
       <div className="bg-slate-900 rounded-lg p-4 mb-6 divide-y divide-slate-800">

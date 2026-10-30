@@ -22,6 +22,10 @@ export function getAllSecrets() {
   return loadSecrets();
 }
 
+export function hasSecretsFile() {
+  return fs.existsSync(SECRETS_FILE);
+}
+
 export function updateSecrets(partial) {
   const updated = { ...loadSecrets(), ...partial };
   fs.mkdirSync(CONFIG_DIR, { recursive: true });

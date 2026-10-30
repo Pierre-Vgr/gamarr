@@ -18,6 +18,7 @@ const NAV_ITEMS = [
 
 export default function App() {
   const [view, setView] = useState("library");
+  const [ready, setReady] = useState(false);
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,6 +45,15 @@ export default function App() {
       .getGameFacets()
       .then(setFacets)
       .catch(() => {});
+    // Aucun secrets.json fourni : on démarre directement sur Paramètres plutôt que
+    // de laisser l'utilisateur découvrir une bibliothèque vide sans explication.
+    api
+      .getSettings()
+      .then((s) => {
+        if (s.firstRun) setView("settings");
+      })
+      .catch(() => {})
+      .finally(() => setReady(true));
   }, []);
 
   const load = useCallback(async () => {
@@ -76,6 +86,8 @@ export default function App() {
   function handleRefreshed(updatedGame) {
     setGames((prev) => prev.map((g) => (g.id === updatedGame.id ? updatedGame : g)));
   }
+
+  if (!ready) return null;
 
   return (
     <div className="min-h-screen flex">

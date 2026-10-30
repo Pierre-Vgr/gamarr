@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllSecrets, updateSecrets } from "../config/secrets.js";
+import { getAllSecrets, updateSecrets, hasSecretsFile } from "../config/secrets.js";
 import { testRawgKey } from "../services/metadataProviders/rawg.js";
 import { testIgdbCredentials } from "../services/metadataProviders/igdb.js";
 import { testProwlarrConnection } from "../services/prowlarr.js";
@@ -16,7 +16,7 @@ const EDITABLE_FIELDS = [
 ];
 
 function withDefaults(secrets) {
-  const result = {};
+  const result = { firstRun: !hasSecretsFile() };
   for (const field of EDITABLE_FIELDS) {
     if (field === "PROWLARR_INDEXER_IDS") {
       result[field] = Array.isArray(secrets[field]) ? secrets[field] : [];
