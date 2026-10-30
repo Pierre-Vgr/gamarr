@@ -52,14 +52,10 @@ export default function App() {
     setError(null);
     try {
       const effectiveStatus = view === "wishlist" ? "wishlist" : status;
-      const params = { search, status: effectiveStatus, sort };
-      if (view === "library") {
-        params.source = source;
-        params.genre = genre;
-      }
+      const params = { search, status: effectiveStatus, sort, source, genre };
       const data = await api.listGames(params);
       setGames(view === "library" ? data.filter((g) => g.status !== "wishlist") : data);
-      if (view === "library") api.getGameFacets().then(setFacets).catch(() => {});
+      api.getGameFacets().then(setFacets).catch(() => {});
     } catch (err) {
       setError(err.message);
     } finally {
@@ -136,45 +132,43 @@ export default function App() {
                 onChange={(e) => setSearch(e.target.value)}
               />
               {view === "library" && (
-                <>
-                  <select
-                    className="bg-slate-800 rounded px-3 py-2"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                  >
-                    <option value="">Tous les statuts</option>
-                    {LIBRARY_STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="bg-slate-800 rounded px-3 py-2"
-                    value={source}
-                    onChange={(e) => setSource(e.target.value)}
-                  >
-                    <option value="">Toutes les sources</option>
-                    {facets.sources.map((s) => (
-                      <option key={s} value={s}>
-                        {s.toUpperCase()}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    className="bg-slate-800 rounded px-3 py-2"
-                    value={genre}
-                    onChange={(e) => setGenre(e.target.value)}
-                  >
-                    <option value="">Toutes les catégories</option>
-                    {facets.genres.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
-                  </select>
-                </>
+                <select
+                  className="bg-slate-800 rounded px-3 py-2"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="">Tous les statuts</option>
+                  {LIBRARY_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               )}
+              <select
+                className="bg-slate-800 rounded px-3 py-2"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+              >
+                <option value="">Toutes les sources</option>
+                {facets.sources.map((s) => (
+                  <option key={s} value={s}>
+                    {s.toUpperCase()}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="bg-slate-800 rounded px-3 py-2"
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+              >
+                <option value="">Toutes les catégories</option>
+                {facets.genres.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
               <select
                 className="bg-slate-800 rounded px-3 py-2"
                 value={sort}
@@ -184,7 +178,7 @@ export default function App() {
                 <option value="created_at">Trier par date d'ajout</option>
                 <option value="release_date">Trier par date de sortie</option>
                 <option value="rating">Trier par note</option>
-                {view === "library" && <option value="source">Trier par source</option>}
+                <option value="source">Trier par source</option>
               </select>
             </div>
 
