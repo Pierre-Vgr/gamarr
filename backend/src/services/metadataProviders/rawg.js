@@ -9,6 +9,7 @@ const EXCLUDED_STORE_SLUGS = new Set([
   "nintendo",
   "apple-appstore",
   "google-play",
+  "itch",
 ]);
 
 function apiKey() {
