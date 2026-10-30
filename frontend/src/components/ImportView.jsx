@@ -16,6 +16,7 @@ export function ImportView({ onImported }) {
   const [browseLoading, setBrowseLoading] = useState(true);
   const [browseError, setBrowseError] = useState(null);
   const [activeName, setActiveName] = useState(null);
+  const [selected, setSelected] = useState(new Set());
 
   async function loadScan() {
     setScanLoading(true);
@@ -63,12 +64,26 @@ export function ImportView({ onImported }) {
     setBulkError(null);
     try {
       await api.importGames(names);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        names.forEach((n) => next.delete(n));
+        return next;
+      });
       await refreshAll();
     } catch (err) {
       setBulkError(err.message);
     } finally {
       setBulkRunning(false);
     }
+  }
+
+  function toggleSelected(name) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
   }
 
   async function handleSmartImport() {
@@ -88,6 +103,21 @@ export function ImportView({ onImported }) {
 
   const busy = bulkRunning || smartRunning;
   const activeEntry = browse?.entries.find((e) => e.name === activeName) || null;
+  const selectableInCurrentLevel = (browse?.entries || []).filter((e) => !e.alreadyImported).map((e) => e.name);
+  const allCurrentLevelSelected =
+    selectableInCurrentLevel.length > 0 && selectableInCurrentLevel.every((n) => selected.has(n));
+
+  function toggleCurrentLevel() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allCurrentLevelSelected) {
+        selectableInCurrentLevel.forEach((n) => next.delete(n));
+      } else {
+        selectableInCurrentLevel.forEach((n) => next.add(n));
+      }
+      return next;
+    });
+  }
 
   const breadcrumbs = [];
   if (currentPath) {
@@ -141,27 +171,58 @@ export function ImportView({ onImported }) {
 
       <div className="flex gap-6 items-start flex-wrap lg:flex-nowrap">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1 text-sm mb-3 flex-wrap">
-            <button
-              onClick={() => setCurrentPath("")}
-              className={currentPath === "" ? "text-white font-medium" : "text-indigo-400 hover:underline"}
-            >
-              Racine
-            </button>
-            {breadcrumbs.map((b, i) => (
-              <span key={b.path} className="flex items-center gap-1">
-                <span className="text-slate-500">/</span>
-                <button
-                  onClick={() => setCurrentPath(b.path)}
-                  className={
-                    i === breadcrumbs.length - 1 ? "text-white font-medium" : "text-indigo-400 hover:underline"
-                  }
-                >
-                  {b.label}
-                </button>
-              </span>
-            ))}
+          <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <div className="flex items-center gap-1 text-sm flex-wrap">
+              <button
+                onClick={() => setCurrentPath("")}
+                className={currentPath === "" ? "text-white font-medium" : "text-indigo-400 hover:underline"}
+              >
+                Racine
+              </button>
+              {breadcrumbs.map((b, i) => (
+                <span key={b.path} className="flex items-center gap-1">
+                  <span className="text-slate-500">/</span>
+                  <button
+                    onClick={() => setCurrentPath(b.path)}
+                    className={
+                      i === breadcrumbs.length - 1 ? "text-white font-medium" : "text-indigo-400 hover:underline"
+                    }
+                  >
+                    {b.label}
+                  </button>
+                </span>
+              ))}
+            </div>
+            {selectableInCurrentLevel.length > 0 && (
+              <button onClick={toggleCurrentLevel} className="text-sm text-indigo-400 hover:underline shrink-0">
+                {allCurrentLevelSelected ? "Désélectionner ce dossier" : "Sélectionner ce dossier"}
+              </button>
+            )}
           </div>
+
+          {selected.size > 0 && (
+            <div className="flex items-center justify-between gap-3 bg-slate-800 rounded-lg p-2 mb-3 text-sm">
+              <span className="text-slate-300">
+                {selected.size} sélectionné(s) (toutes catégories confondues). Un dossier coché est
+                importé dans son ensemble (tout son contenu fait partie du même jeu).
+              </span>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => setSelected(new Set())}
+                  className="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs"
+                >
+                  Vider
+                </button>
+                <button
+                  onClick={() => handleImport(Array.from(selected))}
+                  disabled={busy}
+                  className="px-3 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-xs font-medium disabled:opacity-50"
+                >
+                  {bulkRunning ? "Import..." : `Importer la sélection (${selected.size})`}
+                </button>
+              </div>
+            </div>
+          )}
 
           {browseLoading ? (
             <p className="text-slate-400">Chargement...</p>
@@ -183,6 +244,13 @@ export function ImportView({ onImported }) {
                       activeName === entry.name ? "bg-slate-800 ring-1 ring-indigo-500" : ""
                     } ${entry.alreadyImported ? "opacity-50" : ""}`}
                   >
+                    <input
+                      type="checkbox"
+                      checked={selected.has(entry.name)}
+                      disabled={entry.alreadyImported}
+                      onChange={() => toggleSelected(entry.name)}
+                      className="shrink-0"
+                    />
                     <span className="shrink-0">{entry.isDirectory ? "📁" : "📄"}</span>
                     {entry.isDirectory ? (
                       <button
@@ -226,6 +294,11 @@ export function ImportView({ onImported }) {
             onClose={() => setActiveName(null)}
             onImported={async () => {
               setActiveName(null);
+              setSelected((prev) => {
+                const next = new Set(prev);
+                next.delete(activeEntry.name);
+                return next;
+              });
               await refreshAll();
             }}
           />
