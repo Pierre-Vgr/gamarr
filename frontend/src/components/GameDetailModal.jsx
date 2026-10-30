@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { StatusBadge } from "./StatusBadge.jsx";
-import { ProtonBadge } from "./ProtonBadge.jsx";
-import { MetacriticBadge } from "./MetacriticBadge.jsx";
+import { GameInfoPanel } from "./GameInfoPanel.jsx";
 import { api } from "../api/client.js";
 
 export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, onSearchReleases }) {
@@ -41,74 +39,22 @@ export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
       <div className="bg-slate-900 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-        <div className="flex gap-4">
-          <div className="w-32 shrink-0 aspect-[3/4] bg-slate-800 rounded overflow-hidden">
-            {current.cover_url ? (
-              <img src={current.cover_url} alt={current.title} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs text-center p-2">
-                Pas de cover
-              </div>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <h2 className="text-xl font-semibold">{current.title}</h2>
-              <StatusBadge status={current.status} />
-            </div>
-            <p className="text-sm text-slate-400 mt-1">
-              {current.platforms?.join(", ") || "Plateforme inconnue"}
-              {current.release_date && ` · ${current.release_date.slice(0, 4)}`}
-            </p>
-            {current.genres?.length > 0 && (
-              <p className="text-sm text-slate-500 mt-1">{current.genres.join(", ")}</p>
-            )}
-            {(current.stores?.length > 0 || current.proton_tier) && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {current.stores?.map((s) => (
-                  <span
-                    key={s.slug || s.name}
-                    className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-700 text-slate-300"
-                  >
-                    {s.name}
-                  </span>
-                ))}
-                <ProtonBadge tier={current.proton_tier} />
-              </div>
-            )}
-            {current.rating != null && (
-              <p className="text-sm text-slate-400 mt-2">Note : {current.rating} / 5</p>
-            )}
-          </div>
-
-          {(current.metacritic_score != null || current.community_rating != null) && (
-            <div className="flex flex-col items-center gap-2 shrink-0 pl-4 border-l border-slate-800">
-              {current.metacritic_score != null && (
-                <MetacriticBadge score={current.metacritic_score} size="lg" showLabel />
-              )}
-              {current.community_rating != null && (
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-slate-200">{current.community_rating}/100</p>
-                  <p className="text-[10px] text-slate-500">
-                    communauté{current.ratings_count ? ` · ${current.ratings_count} avis` : ""}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {current.description && (
-          <p className="text-sm text-slate-300 mt-4 leading-relaxed">{current.description}</p>
-        )}
-
-        {current.notes && (
-          <div className="mt-4 p-3 bg-slate-800 rounded">
-            <p className="text-xs text-slate-500 mb-1">Notes personnelles</p>
-            <p className="text-sm text-slate-300">{current.notes}</p>
-          </div>
-        )}
+        <GameInfoPanel
+          title={current.title}
+          coverUrl={current.cover_url}
+          platforms={current.platforms}
+          releaseDate={current.release_date}
+          genres={current.genres}
+          status={current.status}
+          stores={current.stores}
+          protonTier={current.proton_tier}
+          metacriticScore={current.metacritic_score}
+          communityRating={current.community_rating}
+          ratingsCount={current.ratings_count}
+          description={current.description}
+          notes={current.notes}
+          personalRating={current.rating}
+        />
 
         {refreshError && <p className="text-red-400 text-sm mt-3">{refreshError}</p>}
 

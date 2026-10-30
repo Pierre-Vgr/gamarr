@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client.js";
+import { DiscoverDetailModal } from "./DiscoverDetailModal.jsx";
 
 export function DiscoverView() {
   const [providers, setProviders] = useState([]);
@@ -11,6 +12,7 @@ export function DiscoverView() {
   const [error, setError] = useState(null);
   const [added, setAdded] = useState(new Set());
   const [adding, setAdding] = useState(null);
+  const [detailResult, setDetailResult] = useState(null);
 
   const canBrowse = provider === "rawg";
 
@@ -157,7 +159,11 @@ export function DiscoverView() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {results.map((r) => (
             <div key={r.externalId} className="bg-slate-900 rounded-lg overflow-hidden shadow-lg">
-              <div className="aspect-[3/4] bg-slate-800 relative">
+              <button
+                type="button"
+                onClick={() => setDetailResult(r)}
+                className="block w-full aspect-[3/4] bg-slate-800 relative"
+              >
                 {r.coverUrl ? (
                   <img src={r.coverUrl} alt={r.title} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
@@ -165,7 +171,7 @@ export function DiscoverView() {
                     Pas de cover
                   </div>
                 )}
-              </div>
+              </button>
               <div className="p-3">
                 <h3 className="font-semibold truncate text-sm" title={r.title}>
                   {r.title}
@@ -207,6 +213,16 @@ export function DiscoverView() {
             Suivant
           </button>
         </div>
+      )}
+
+      {detailResult && (
+        <DiscoverDetailModal
+          result={detailResult}
+          onClose={() => setDetailResult(null)}
+          onAdd={addToWishlist}
+          isAdded={added.has(detailResult.externalId)}
+          isAdding={adding === detailResult.externalId}
+        />
       )}
     </div>
   );
