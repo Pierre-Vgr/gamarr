@@ -8,6 +8,9 @@ export function ReleaseSearchModal({ game, onClose }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searched, setSearched] = useState(false);
+  const [grabbing, setGrabbing] = useState(null);
+  const [grabbed, setGrabbed] = useState(new Set());
+  const [grabErrors, setGrabErrors] = useState({});
 
   useEffect(() => {
     handleSearch();
@@ -27,6 +30,19 @@ export function ReleaseSearchModal({ game, onClose }) {
     } finally {
       setLoading(false);
       setSearched(true);
+    }
+  }
+
+  async function handleGrab(r) {
+    setGrabbing(r.guid);
+    setGrabErrors((prev) => ({ ...prev, [r.guid]: null }));
+    try {
+      await api.grabRelease(r.guid, r.indexerId);
+      setGrabbed((prev) => new Set(prev).add(r.guid));
+    } catch (err) {
+      setGrabErrors((prev) => ({ ...prev, [r.guid]: err.message }));
+    } finally {
+      setGrabbing(null);
     }
   }
 
@@ -71,8 +87,8 @@ export function ReleaseSearchModal({ game, onClose }) {
                 </tr>
               </thead>
               <tbody>
-                {results.map((r, i) => (
-                  <tr key={i} className="border-b border-slate-800/50 hover:bg-slate-800/50">
+                {results.map((r) => (
+                  <tr key={r.guid} className="border-b border-slate-800/50 hover:bg-slate-800/50">
                     <td className="py-2 pr-2 max-w-md truncate" title={r.title}>
                       {r.title}
                     </td>
@@ -84,15 +100,19 @@ export function ReleaseSearchModal({ game, onClose }) {
                       {r.protocol === "torrent" ? r.seeders ?? "-" : "-"}
                     </td>
                     <td className="py-2 pr-2 text-right">
-                      {(r.downloadUrl || r.infoUrl) && (
-                        <a
-                          href={r.downloadUrl || r.infoUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium whitespace-nowrap"
-                        >
-                          Ouvrir
-                        </a>
+                      <button
+                        onClick={() => handleGrab(r)}
+                        disabled={grabbing === r.guid || grabbed.has(r.guid)}
+                        className="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-xs font-medium whitespace-nowrap disabled:opacity-50 disabled:bg-emerald-800"
+                      >
+                        {grabbed.has(r.guid)
+                          ? "Envoyé ✓"
+                          : grabbing === r.guid
+                            ? "Envoi..."
+                            : "Télécharger"}
+                      </button>
+                      {grabErrors[r.guid] && (
+                        <p className="text-red-400 text-xs mt-1 max-w-[12rem]">{grabErrors[r.guid]}</p>
                       )}
                     </td>
                   </tr>

@@ -34,6 +34,8 @@ export async function searchReleases(query) {
   const data = await res.json();
 
   return data.map((r) => ({
+    guid: r.guid,
+    indexerId: r.indexerId,
     title: r.title,
     indexer: r.indexer,
     sizeBytes: r.size ?? null,
@@ -44,6 +46,24 @@ export async function searchReleases(query) {
     downloadUrl: r.downloadUrl || r.magnetUrl || null,
     infoUrl: r.infoUrl || null,
   }));
+}
+
+export async function grabRelease(guid, indexerId) {
+  const url = new URL(`${baseUrl()}/api/v1/search`);
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "X-Api-Key": apiKey(), "Content-Type": "application/json" },
+    body: JSON.stringify({ guid, indexerId }),
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const message = Array.isArray(body)
+      ? body.map((e) => e.errorMessage).join("; ")
+      : `Prowlarr grab failed: ${res.status}`;
+    throw new Error(message);
+  }
 }
 
 export async function listIndexers(url, apiKeyValue) {

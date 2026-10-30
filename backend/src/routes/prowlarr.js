@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { isConfigured, searchReleases, listIndexers } from "../services/prowlarr.js";
+import { isConfigured, searchReleases, listIndexers, grabRelease } from "../services/prowlarr.js";
 
 export const prowlarrRouter = Router();
 
@@ -30,6 +30,23 @@ prowlarrRouter.get("/search", async (req, res) => {
   try {
     const results = await searchReleases(q);
     res.json(results);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+prowlarrRouter.post("/grab", async (req, res) => {
+  const { guid, indexerId } = req.body || {};
+  if (!guid || !indexerId) {
+    return res.status(400).json({ error: "guid et indexerId requis" });
+  }
+  if (!isConfigured()) {
+    return res.status(400).json({ error: "Prowlarr is not configured" });
+  }
+
+  try {
+    await grabRelease(guid, indexerId);
+    res.status(204).end();
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

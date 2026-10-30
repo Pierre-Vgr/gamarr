@@ -44,6 +44,8 @@ export const api = {
 
   prowlarrStatus: () => request("/prowlarr/status"),
   searchReleases: (q) => request(`/prowlarr/search?q=${encodeURIComponent(q)}`),
+  grabRelease: (guid, indexerId) =>
+    request("/prowlarr/grab", { method: "POST", body: JSON.stringify({ guid, indexerId }) }),
   listProwlarrIndexers: (url, apiKey) =>
     request("/prowlarr/indexers", { method: "POST", body: JSON.stringify({ url, apiKey }) }),
 
