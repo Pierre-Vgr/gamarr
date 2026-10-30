@@ -140,14 +140,25 @@ function scanDir(absDir, relPrefix, imported, depth, entries) {
   }
 }
 
+// path (optionnel) : limite le scan heuristique à un sous-dossier donné plutôt
+// que toute la ludothèque, utilisé quand on coche un dossier dans l'arborescence
+// navigable pour en sélectionner le contenu détecté sans importer le dossier
+// lui-même.
 importRouter.get("/scan", (req, res) => {
+  const relPath = typeof req.query.path === "string" ? req.query.path : "";
+
   if (!fs.existsSync(LIBRARY_DIR)) {
     return res.json({ libraryDir: LIBRARY_DIR, exists: false, entries: [] });
   }
 
+  const absPath = relPath === "" ? path.resolve(LIBRARY_DIR) : resolveLibraryPath(relPath);
+  if (!absPath || !fs.existsSync(absPath) || !fs.statSync(absPath).isDirectory()) {
+    return res.status(400).json({ error: "invalid path" });
+  }
+
   const imported = alreadyImported();
   const entries = [];
-  scanDir(LIBRARY_DIR, "", imported, 0, entries);
+  scanDir(absPath, relPath, imported, 0, entries);
   entries.sort((a, b) => a.title.localeCompare(b.title));
 
   res.json({ libraryDir: LIBRARY_DIR, exists: true, entries });

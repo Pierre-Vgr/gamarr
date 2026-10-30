@@ -17,6 +17,11 @@ export function ImportView({ onImported }) {
   const [browseError, setBrowseError] = useState(null);
   const [activeName, setActiveName] = useState(null);
   const [selected, setSelected] = useState(new Set());
+  // Chemin du dossier coché -> noms (relatifs à LIBRARY_DIR) de son contenu détecté,
+  // pour pouvoir les retirer de `selected` si le dossier est décoché, et pour savoir
+  // si la case d'un dossier doit apparaître cochée.
+  const [expandedFolders, setExpandedFolders] = useState(new Map());
+  const [expandingFolders, setExpandingFolders] = useState(new Set());
 
   async function loadScan() {
     setScanLoading(true);
@@ -69,6 +74,15 @@ export function ImportView({ onImported }) {
         names.forEach((n) => next.delete(n));
         return next;
       });
+      // Un dossier coché n'est "sélectionné" que via son contenu détecté : une fois
+      // tout ce contenu importé, le dossier ne doit plus apparaître cocher non plus.
+      setExpandedFolders((prev) => {
+        const next = new Map(prev);
+        for (const [folderName, subNames] of prev) {
+          if (subNames.every((n) => names.includes(n))) next.delete(folderName);
+        }
+        return next;
+      });
       await refreshAll();
     } catch (err) {
       setBulkError(err.message);
@@ -84,6 +98,55 @@ export function ImportView({ onImported }) {
       else next.add(name);
       return next;
     });
+  }
+
+  // Cocher un dossier ne l'importe jamais lui-même : ça scanne son contenu et
+  // ajoute à la sélection ce qui y a été détecté (jeux/archives), afin de ne pas
+  // se retrouver avec tout son contenu fusionné dans une seule fausse entrée.
+  async function toggleFolderSelection(entry) {
+    if (expandedFolders.has(entry.name)) {
+      const names = expandedFolders.get(entry.name);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        names.forEach((n) => next.delete(n));
+        return next;
+      });
+      setExpandedFolders((prev) => {
+        const next = new Map(prev);
+        next.delete(entry.name);
+        return next;
+      });
+      return;
+    }
+
+    setExpandingFolders((prev) => new Set(prev).add(entry.name));
+    setBulkError(null);
+    try {
+      const result = await api.scanImport(entry.name);
+      const names = result.entries.map((e) => e.name);
+      if (names.length === 0) {
+        setBulkError(`Aucun élément détecté dans "${entry.title}".`);
+        return;
+      }
+      setSelected((prev) => {
+        const next = new Set(prev);
+        names.forEach((n) => next.add(n));
+        return next;
+      });
+      setExpandedFolders((prev) => new Map(prev).set(entry.name, names));
+    } catch (err) {
+      setBulkError(err.message);
+    } finally {
+      setExpandingFolders((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.name);
+        return next;
+      });
+    }
+  }
+
+  function isEntrySelected(entry) {
+    return entry.isDirectory ? expandedFolders.has(entry.name) : selected.has(entry.name);
   }
 
   async function handleSmartImport() {
@@ -103,20 +166,37 @@ export function ImportView({ onImported }) {
 
   const busy = bulkRunning || smartRunning;
   const activeEntry = browse?.entries.find((e) => e.name === activeName) || null;
-  const selectableInCurrentLevel = (browse?.entries || []).filter((e) => !e.alreadyImported).map((e) => e.name);
+  const selectableInCurrentLevel = (browse?.entries || []).filter((e) => !e.alreadyImported);
   const allCurrentLevelSelected =
-    selectableInCurrentLevel.length > 0 && selectableInCurrentLevel.every((n) => selected.has(n));
+    selectableInCurrentLevel.length > 0 && selectableInCurrentLevel.every(isEntrySelected);
 
-  function toggleCurrentLevel() {
+  async function toggleCurrentLevel() {
+    if (allCurrentLevelSelected) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        selectableInCurrentLevel.forEach((e) => {
+          if (e.isDirectory) (expandedFolders.get(e.name) || []).forEach((n) => next.delete(n));
+          else next.delete(e.name);
+        });
+        return next;
+      });
+      setExpandedFolders((prev) => {
+        const next = new Map(prev);
+        selectableInCurrentLevel.forEach((e) => e.isDirectory && next.delete(e.name));
+        return next;
+      });
+      return;
+    }
+
+    const files = selectableInCurrentLevel.filter((e) => !e.isDirectory).map((e) => e.name);
     setSelected((prev) => {
       const next = new Set(prev);
-      if (allCurrentLevelSelected) {
-        selectableInCurrentLevel.forEach((n) => next.delete(n));
-      } else {
-        selectableInCurrentLevel.forEach((n) => next.add(n));
-      }
+      files.forEach((n) => next.add(n));
       return next;
     });
+
+    const folders = selectableInCurrentLevel.filter((e) => e.isDirectory && !expandedFolders.has(e.name));
+    await Promise.all(folders.map((f) => toggleFolderSelection(f)));
   }
 
   const breadcrumbs = [];
@@ -203,8 +283,8 @@ export function ImportView({ onImported }) {
           {selected.size > 0 && (
             <div className="flex items-center justify-between gap-3 bg-slate-800 rounded-lg p-2 mb-3 text-sm">
               <span className="text-slate-300">
-                {selected.size} sélectionné(s) (toutes catégories confondues). Un dossier coché est
-                importé dans son ensemble (tout son contenu fait partie du même jeu).
+                {selected.size} sélectionné(s) (toutes catégories confondues). Cocher un dossier
+                sélectionne le contenu détecté à l'intérieur, pas le dossier lui-même.
               </span>
               <div className="flex gap-2 shrink-0">
                 <button
@@ -246,9 +326,9 @@ export function ImportView({ onImported }) {
                   >
                     <input
                       type="checkbox"
-                      checked={selected.has(entry.name)}
-                      disabled={entry.alreadyImported}
-                      onChange={() => toggleSelected(entry.name)}
+                      checked={isEntrySelected(entry)}
+                      disabled={entry.alreadyImported || expandingFolders.has(entry.name)}
+                      onChange={() => (entry.isDirectory ? toggleFolderSelection(entry) : toggleSelected(entry.name))}
                       className="shrink-0"
                     />
                     <span className="shrink-0">{entry.isDirectory ? "📁" : "📄"}</span>

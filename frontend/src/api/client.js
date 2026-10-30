@@ -39,7 +39,7 @@ export const api = {
   browseCatalog: (provider = "rawg", page = 1, mode = "all-time") =>
     request(`/metadata/browse?provider=${provider}&page=${page}&mode=${mode}`),
 
-  scanImport: () => request("/import/scan"),
+  scanImport: (path = "") => request(`/import/scan${path ? `?path=${encodeURIComponent(path)}` : ""}`),
   browseImport: (path = "") => request(`/import/browse?path=${encodeURIComponent(path)}`),
   importGames: (names) => request("/import", { method: "POST", body: JSON.stringify({ names }) }),
   smartImport: () => request("/import/smart", { method: "POST" }),
