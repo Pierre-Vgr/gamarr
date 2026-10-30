@@ -58,15 +58,8 @@ export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, 
 
         {refreshError && <p className="text-red-400 text-sm mt-3">{refreshError}</p>}
 
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-6">
-          <button
-            onClick={handleDelete}
-            className="px-4 py-2 rounded text-red-400 border border-red-900 hover:bg-red-950 font-medium"
-          >
-            Supprimer
-          </button>
-
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="pt-6 space-y-3">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -82,14 +75,23 @@ export function GameDetailModal({ game, onClose, onEdit, onDelete, onRefreshed, 
                 Chercher une release
               </button>
             )}
-            <button onClick={onClose} className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600">
-              Fermer
+            <button
+              onClick={handleDelete}
+              className="px-4 py-2 rounded text-red-400 border border-red-900 hover:bg-red-950 font-medium"
+            >
+              Supprimer
             </button>
             <button
               onClick={handleEdit}
               className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium"
             >
               Modifier
+            </button>
+          </div>
+
+          <div className="flex justify-end">
+            <button onClick={onClose} className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600">
+              Fermer
             </button>
           </div>
         </div>
