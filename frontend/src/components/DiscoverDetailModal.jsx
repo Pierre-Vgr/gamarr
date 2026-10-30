@@ -39,15 +39,15 @@ export function DiscoverDetailModal({ result, onClose, onAdd, isAdded, isAdding 
         {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
 
         <div className="flex justify-end gap-2 pt-6">
-          <button onClick={onClose} className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600">
-            Fermer
-          </button>
           <button
             onClick={() => onAdd(result)}
             disabled={isAdding || isAdded}
             className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium disabled:opacity-50 disabled:bg-emerald-800"
           >
             {isAdded ? "Ajouté ✓" : isAdding ? "Ajout..." : "+ Wishlist"}
+          </button>
+          <button onClick={onClose} className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600">
+            Fermer
           </button>
         </div>
       </div>
