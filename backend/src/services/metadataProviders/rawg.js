@@ -2,7 +2,14 @@ import { getSecret } from "../../config/secrets.js";
 import { filterPcPlatforms } from "./platforms.js";
 
 const BASE_URL = "https://api.rawg.io/api";
-const EXCLUDED_STORE_SLUGS = new Set(["playstation-store", "xbox-store", "nintendo"]);
+const EXCLUDED_STORE_SLUGS = new Set([
+  "playstation-store",
+  "xbox-store",
+  "xbox360",
+  "nintendo",
+  "apple-appstore",
+  "google-play",
+]);
 
 function apiKey() {
   const key = getSecret("RAWG_API_KEY");
