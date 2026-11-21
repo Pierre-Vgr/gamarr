@@ -347,7 +347,7 @@ export default function App() {
             )}
 
             {selectedIds.size > 0 && (
-              <div className="flex items-center justify-between gap-3 bg-slate-800 rounded-lg p-2 mb-4 text-sm">
+              <div className="sticky top-0 z-10 flex items-center justify-between gap-3 bg-slate-800 rounded-lg p-2 mb-4 text-sm shadow-lg">
                 <span className="text-slate-300">{selectedIds.size} sélectionné(s)</span>
                 <div className="flex gap-2 shrink-0 items-center">
                   <select
