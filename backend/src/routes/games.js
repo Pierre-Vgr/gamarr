@@ -7,8 +7,19 @@ export const gamesRouter = Router();
 
 const STATUSES = ["wishlist", "backlog", "playing", "completed", "abandoned"];
 
+// Un jeu est considéré "Roms" (console) quand il a au moins une plateforme connue
+// mais aucune d'entre elles n'est "PC" — un vrai jeu PC l'a toujours (RAWG/IGDB la
+// liste, ou l'app s'y attend par défaut), alors qu'une ROM n'a que sa console
+// (ex: "SNES", "Nintendo 3DS"), déduite du dossier par le filet de sécurité de
+// l'import. Un jeu PC multi-plateforme dont la fiche liste aussi des consoles
+// (portages) n'est donc pas compté comme Roms tant que "PC" y figure.
+function isRomGame(platformsJson) {
+  const platforms = JSON.parse(platformsJson || "[]");
+  return platforms.length > 0 && !platforms.includes("PC");
+}
+
 gamesRouter.get("/", (req, res) => {
-  const { status, platform, search, source, genre, store, sort = "title" } = req.query;
+  const { status, platform, search, source, genre, store, category, sort = "title" } = req.query;
 
   let rows = db.prepare("SELECT * FROM games").all();
 
@@ -26,6 +37,9 @@ gamesRouter.get("/", (req, res) => {
   }
   if (store) {
     rows = rows.filter((r) => JSON.parse(r.stores || "[]").some((s) => s.slug === store));
+  }
+  if (category === "roms") {
+    rows = rows.filter((r) => isRomGame(r.platforms));
   }
 
   const games = rows.map(serialize);
@@ -47,6 +61,7 @@ gamesRouter.get("/facets", (req, res) => {
   const genres = new Set();
   const platforms = new Set();
   const stores = new Map(); // slug -> name, pour afficher un nom lisible (Steam, GOG...)
+  let hasRoms = false;
 
   for (const r of rows) {
     if (r.source) sources.add(r.source);
@@ -55,6 +70,7 @@ gamesRouter.get("/facets", (req, res) => {
     for (const s of JSON.parse(r.stores || "[]")) {
       if (s.slug) stores.set(s.slug, s.name || s.slug);
     }
+    if (isRomGame(r.platforms)) hasRoms = true;
   }
 
   res.json({
@@ -64,6 +80,7 @@ gamesRouter.get("/facets", (req, res) => {
     stores: [...stores.entries()]
       .map(([slug, name]) => ({ slug, name }))
       .sort((a, b) => a.name.localeCompare(b.name)),
+    hasRoms,
   });
 });
 
