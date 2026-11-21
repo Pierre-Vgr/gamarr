@@ -15,10 +15,15 @@ const NAV_ITEMS = [
   { id: "roms", label: "Roms" },
   { id: "wishlist", label: "Wishlist" },
   { id: "import", label: "Importer" },
-  { id: "discover", label: "Découvrir" },
   { id: "history", label: "Historique" },
   { id: "settings", label: "Paramètres" },
 ];
+
+// "Découvrir" est un sous-menu de "Wishlist" (ajouter un résultat du catalogue l'y
+// place) : pas de ligne de navigation à part entière, donc son libellé n'est pas dans
+// NAV_ITEMS, mais le titre de page en a quand même besoin.
+const VIEW_LABELS = Object.fromEntries(NAV_ITEMS.map((i) => [i.id, i.label]));
+VIEW_LABELS.discover = "Découvrir";
 
 export default function App() {
   const [view, setView] = useState("library");
@@ -41,6 +46,9 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkRefreshing, setBulkRefreshing] = useState(false);
+  // Sous-menus (stores sous Bibliothèque, plateformes sous Roms, Découvrir sous
+  // Wishlist) dépliés par défaut ; repliables en cliquant sur leur menu parent.
+  const [expandedMenus, setExpandedMenus] = useState(new Set(["library", "roms", "wishlist"]));
 
   const isGridView = view === "library" || view === "wishlist" || view === "roms";
 
@@ -100,6 +108,15 @@ export default function App() {
 
   function handleRefreshed(updatedGame) {
     setGames((prev) => prev.map((g) => (g.id === updatedGame.id ? updatedGame : g)));
+  }
+
+  function toggleMenu(id) {
+    setExpandedMenus((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   function toggleSelectGame(id) {
@@ -175,75 +192,99 @@ export default function App() {
     <div className="min-h-screen flex">
       <aside className="w-56 shrink-0 bg-slate-900 border-r border-slate-800 p-4 flex flex-col gap-1 sticky top-0 h-screen overflow-y-auto">
         <h1 className="text-xl font-bold mb-4 px-2">🎮 Gamarr</h1>
-        {NAV_ITEMS.map((item) => (
-          <div key={item.id}>
-            <button
-              onClick={() => {
-                setView(item.id);
-                setStore("");
-                setPlatform("");
-              }}
-              className={`w-full text-left px-3 py-2 rounded font-medium ${
-                view === item.id &&
-                (item.id === "library"
-                  ? store === ""
-                  : item.id === "roms"
-                  ? platform === ""
-                  : true)
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              {item.label}
-            </button>
-            {item.id === "library" && facets.stores.length > 0 && (
-              <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
-                {facets.stores.map((s) => (
+        {NAV_ITEMS.map((item) => {
+          const hasSubmenu =
+            (item.id === "library" && facets.stores.length > 0) ||
+            (item.id === "roms" && facets.romPlatforms.length > 0) ||
+            item.id === "wishlist";
+          const expanded = expandedMenus.has(item.id);
+
+          return (
+            <div key={item.id}>
+              <button
+                onClick={() => {
+                  setView(item.id);
+                  setStore("");
+                  setPlatform("");
+                  if (hasSubmenu) toggleMenu(item.id);
+                }}
+                className={`w-full flex items-center justify-between gap-2 text-left px-3 py-2 rounded font-medium ${
+                  view === item.id &&
+                  (item.id === "library"
+                    ? store === ""
+                    : item.id === "roms"
+                    ? platform === ""
+                    : true)
+                    ? "bg-indigo-600 text-white"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                }`}
+              >
+                <span>{item.label}</span>
+                {hasSubmenu && <span className="text-xs">{expanded ? "▾" : "▸"}</span>}
+              </button>
+              {item.id === "library" && hasSubmenu && expanded && (
+                <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
+                  {facets.stores.map((s) => (
+                    <button
+                      key={s.slug}
+                      onClick={() => {
+                        setView("library");
+                        setStore(s.slug);
+                      }}
+                      className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                        view === "library" && store === s.slug
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-500 hover:bg-slate-800 hover:text-white"
+                      }`}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {item.id === "roms" && hasSubmenu && expanded && (
+                <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
+                  {facets.romPlatforms.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => {
+                        setView("roms");
+                        setPlatform(p);
+                      }}
+                      className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                        view === "roms" && platform === p
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-500 hover:bg-slate-800 hover:text-white"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {item.id === "wishlist" && expanded && (
+                <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
                   <button
-                    key={s.slug}
-                    onClick={() => {
-                      setView("library");
-                      setStore(s.slug);
-                    }}
+                    onClick={() => setView("discover")}
                     className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
-                      view === "library" && store === s.slug
+                      view === "discover"
                         ? "bg-indigo-600 text-white"
                         : "text-slate-500 hover:bg-slate-800 hover:text-white"
                     }`}
                   >
-                    {s.name}
+                    Découvrir
                   </button>
-                ))}
-              </div>
-            )}
-            {item.id === "roms" && facets.romPlatforms.length > 0 && (
-              <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
-                {facets.romPlatforms.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => {
-                      setView("roms");
-                      setPlatform(p);
-                    }}
-                    className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
-                      view === "roms" && platform === p
-                        ? "bg-indigo-600 text-white"
-                        : "text-slate-500 hover:bg-slate-800 hover:text-white"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </aside>
 
       <main className="flex-1 px-6 py-6 min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <h2 className="text-2xl font-bold">
-            {NAV_ITEMS.find((i) => i.id === view)?.label}
+            {VIEW_LABELS[view]}
           </h2>
           {isGridView && (
             <div className="flex gap-2">
