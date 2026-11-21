@@ -78,7 +78,7 @@ db.exec(`
 `);
 
 // 'pending' (qBittorrent configuré, en attente de fin de téléchargement), 'linked'
-// (hardlink créé dans /library), 'failed' (voir hardlink_error), ou NULL pour une
+// (hardlink créé dans la bibliothèque), 'failed' (voir hardlink_error), ou NULL pour une
 // ligne 'search', ou un grab fait sans qBittorrent configuré (rien à suivre).
 addColumnIfMissing("history", "hardlink_status", "TEXT");
 addColumnIfMissing("history", "hardlink_error", "TEXT");

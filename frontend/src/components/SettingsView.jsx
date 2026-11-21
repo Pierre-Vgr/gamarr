@@ -266,14 +266,15 @@ export function SettingsView() {
               {section.id === "qbittorrent" && (
                 <p className="text-xs text-slate-500">
                   Une fois configuré, les téléchargements envoyés depuis Gamarr sont surveillés et
-                  automatiquement hardlinkés vers <code className="text-slate-400">/library</code> à la
-                  fin du téléchargement (statut visible dans l'onglet Historique).{" "}
-                  <code className="text-slate-400">/library</code> doit être monté en lecture-écriture
-                  (pas <code className="text-slate-400">:ro</code>). Dans qBittorrent, monte ce même
-                  dossier hôte et crée une catégorie dédiée dont le chemin de sauvegarde est{" "}
-                  <code className="text-slate-400">&lt;montage&gt;/.downloads</code> — surtout pas un
-                  volume Docker séparé, même pointant le même dossier : le hardlink échouerait quand
-                  même ("cross-device", visible dans l'Historique en cas d'erreur).
+                  automatiquement hardlinkés vers la bibliothèque à la fin du téléchargement (statut
+                  visible dans l'onglet Historique). Le montage{" "}
+                  <code className="text-slate-400">/data</code> (lecture-écriture) contient{" "}
+                  <code className="text-slate-400">/data/library</code> et{" "}
+                  <code className="text-slate-400">/data/downloads</code> : dans qBittorrent, monte ce
+                  même dossier hôte et crée une catégorie dédiée dont le chemin de sauvegarde est{" "}
+                  <code className="text-slate-400">/data/downloads</code> — surtout pas un volume
+                  Docker séparé, même pointant le même dossier : le hardlink échouerait quand même
+                  ("cross-device", visible dans l'Historique en cas d'erreur).
                 </p>
               )}
 

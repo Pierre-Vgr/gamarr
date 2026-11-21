@@ -6,14 +6,14 @@ services:
       - "3000:3000"
     volumes:
       - ./config:/config
-      # Lecture-écriture depuis l'ajout du hardlink qBittorrent -> bibliothèque (ce
-      # dernier doit pouvoir créer des fichiers ici). Remettre ":ro" désactive le
-      # hardlink automatique (échec silencieusement ignoré, pas de perte de données).
+      # Un seul montage "data" pour la bibliothèque ET les téléchargements qBittorrent
+      # (./data/library et ./data/downloads) : un hardlink échoue entre deux montages
+      # Docker distincts même s'ils pointent le même répertoire hôte, donc les deux
+      # doivent être sous CE MÊME montage. Lecture-écriture requise (hardlink). Dans
+      # qBittorrent, monte ce même dossier hôte et crée une catégorie dédiée dont le
+      # chemin de sauvegarde est exactement "<montage>/downloads".
       #
-      # Les téléchargements qBittorrent doivent atterrir dans le sous-dossier
-      # "./library/.downloads" de CE MÊME dossier hôte (pas un volume séparé : un
-      # hardlink échoue entre deux montages Docker distincts même s'ils pointent le
-      # même répertoire). Dans qBittorrent, monte ce dossier hôte et crée une catégorie
-      # dédiée dont le chemin de sauvegarde est exactement "<montage>/.downloads".
-      - ./library:/library
+      # Migration depuis l'ancien montage "./library:/library" : déplacer le contenu de
+      # ./library vers ./data/library sur l'hôte avant de redémarrer avec cette version.
+      - ./data:/data
     restart: unless-stopped

@@ -45,7 +45,7 @@ app.listen(PORT, () => {
   console.log(`Gamarr backend listening on port ${PORT}`);
 });
 
-// Hardlink des téléchargements qBittorrent terminés vers /library (voir
+// Hardlink des téléchargements qBittorrent terminés vers la bibliothèque (voir
 // services/hardlink.js) — ne fait rien tant que qBittorrent n'est pas configuré.
 const HARDLINK_POLL_INTERVAL_MS = 60_000;
 setInterval(() => {

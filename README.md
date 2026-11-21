@@ -21,11 +21,11 @@ web à Playnite. Mono-utilisateur, sans authentification, pensé pour un usage s
 L'app ne se configure qu'avec deux volumes, aucune variable d'environnement n'est requise.
 
 ```bash
-mkdir -p config library
+mkdir -p config data/library data/downloads
 cp secrets.json.example config/secrets.json
 # renseigner RAWG_API_KEY dans config/secrets.json (clé gratuite sur https://rawg.io/apidocs)
 
-# édite docker-compose.yml pour faire pointer ./library vers ton dossier de jeux non installés
+# édite docker-compose.yml pour faire pointer ./data/library vers ton dossier de jeux non installés
 docker compose up --build
 # ou : podman compose up --build
 ```
@@ -39,10 +39,14 @@ Deux volumes, et rien d'autre :
 | Volume | Monté sur | Contenu |
 |---|---|---|
 | `./config` | `/config` | Base SQLite (`gamarr.db`) et `secrets.json` (clés API). |
-| `./library` | `/library` (lecture seule) | Le dossier contenant tes jeux non installés, scanné par l'import. |
+| `./data` | `/data` (lecture-écriture) | `data/library` : tes jeux non installés, scanné par l'import. `data/downloads` : dépôt des téléchargements qBittorrent avant hardlink vers `data/library` (voir plus bas). |
+
+`/data` est en lecture-écriture (nécessaire au hardlink qBittorrent → bibliothèque).
+`library` et `downloads` doivent rester sous ce même montage `/data` : un hardlink échoue
+entre deux volumes Docker distincts, même s'ils pointent le même dossier hôte.
 
 Édite directement les chemins hôtes dans `docker-compose.yml` (par défaut `./config` et
-`./library`, relatifs au dépôt) pour les faire pointer où tu veux.
+`./data`, relatifs au dépôt) pour les faire pointer où tu veux.
 
 ### Secrets (`config/secrets.json`)
 
@@ -58,7 +62,7 @@ automatique de métadonnées est désactivée.
 
 ### Import depuis un dossier
 
-Le bouton "Importer" scanne le contenu de `/library` (un niveau, pas récursif) et affiche
+Le bouton "Importer" scanne le contenu de `/data/library` (un niveau, pas récursif) et affiche
 les dossiers/fichiers pas encore importés. Sélectionne ceux à ajouter : une entrée est créée
 par élément, avec un titre déduit du nom (extension et tags entre crochets/parenthèses
 retirés). Tu peux ensuite enrichir chaque entrée via la recherche de métadonnées, comme pour
@@ -80,8 +84,8 @@ http://localhost:5173 (hot-reload Vite, proxy `/api` vers le backend). C'est le 
 ## Architecture
 
 - `backend/` — API Express + SQLite (better-sqlite3), sert aussi le build du frontend en
-  production (mono-container). Les chemins `/config` et `/library` sont fixes dans le code
-  (`backend/src/config/paths.js`) : seuls les volumes Docker varient.
+  production (mono-container). Les chemins `/config`, `/data/library` et `/data/downloads`
+  sont fixes dans le code (`backend/src/config/paths.js`) : seuls les volumes Docker varient.
 - `frontend/` — React + Vite + Tailwind.
 - Un seul `Dockerfile` multi-stage : build du frontend puis image finale avec le backend
   qui sert l'API (`/api/*`) et les fichiers statiques du frontend.

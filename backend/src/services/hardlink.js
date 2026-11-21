@@ -29,7 +29,7 @@ function resolveContentPath(torrent) {
 }
 
 // Un hardlink ne porte que sur un fichier (impossible de hardlinker un dossier sous
-// Unix) : on recrée donc l'arborescence du téléchargement dans /library et on lie
+// Unix) : on recrée donc l'arborescence du téléchargement dans LIBRARY_DIR et on lie
 // chaque fichier individuellement. Même espace disque, le client de téléchargement
 // peut continuer à seeder depuis le dossier de téléchargement sans rien dupliquer.
 function hardlinkRecursive(srcDir, destDir) {

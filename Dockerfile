@@ -19,6 +19,6 @@ ENV NODE_ENV=production \
     PORT=3000
 
 EXPOSE 3000
-VOLUME ["/config", "/library"]
+VOLUME ["/config", "/data"]
 
 CMD ["node", "src/server.js"]
