@@ -272,7 +272,40 @@ function classifyDir(absDir) {
 // est traité comme une simple catégorie et on continue à descendre dedans ;
 // les fichiers isolés qu'il contient malgré tout (archives) sont listés
 // individuellement.
-function scanDir(absDir, relPrefix, imported, depth, entries) {
+//
+// Cas limite que le comptage seul ne peut pas trancher : un vrai jeu avec une
+// structure interne riche (langues, crack, patch nommé autrement que les noms
+// génériques ci-dessus...) peut avoir plus de sous-dossiers que de fichiers à
+// sa racine tout en étant UN seul jeu. Quand le comptage penche pour une
+// catégorie, on vérifie donc en plus si le nom du dossier correspond
+// exactement à une fiche existante (providerImpl, optionnel) : si oui, c'est
+// très probablement ce jeu-là, et on ne descend pas dans ses sous-dossiers.
+//
+// Ce nom peut cependant coïncider par hasard avec un jeu obscur (ex: un
+// dossier catégorie "CRACKED" matche littéralement un jeu indé nommé
+// "Cracked" sur RAWG) : on ne tente donc cette vérification que si les
+// sous-dossiers eux-mêmes NE ressemblent PAS déjà à des jeux individuels. Si
+// la majorité en ont l'air, c'est que le dossier est une vraie catégorie,
+// coïncidence de nom ou pas.
+function subdirsLookLikeGames(absDir) {
+  let dirents;
+  try {
+    dirents = fs.readdirSync(absDir, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+  const realSubdirs = dirents.filter(
+    (e) => e.isDirectory() && !e.name.startsWith(".") && !GENERIC_SUBFOLDER_NAMES.has(e.name.toLowerCase())
+  );
+  if (realSubdirs.length === 0) return false;
+  const gameLike = realSubdirs.filter((e) => {
+    const { files, subdirs } = classifyDir(path.join(absDir, e.name));
+    return files > 0 && files > subdirs;
+  }).length;
+  return gameLike >= Math.ceil(realSubdirs.length / 2);
+}
+
+async function scanDir(absDir, relPrefix, imported, depth, entries, providerImpl) {
   let dirents;
   try {
     dirents = fs.readdirSync(absDir, { withFileTypes: true });
@@ -304,12 +337,24 @@ function scanDir(absDir, relPrefix, imported, depth, entries) {
       // seule fausse fiche cherchant littéralement "GOG" ou "STEAMRIP".
       const looksLikeArchiveCategory = standaloneArchives > 1;
 
-      if (depth >= MAX_SCAN_DEPTH || (files > subdirs && !looksLikeArchiveCategory)) {
+      let isLeaf = depth >= MAX_SCAN_DEPTH || (files > subdirs && !looksLikeArchiveCategory);
+
+      if (!isLeaf && depth < MAX_SCAN_DEPTH && providerImpl && !subdirsLookLikeGames(absPath)) {
+        try {
+          const title = cleanTitle(entry.name);
+          const results = await providerImpl.search(title);
+          if (findConfidentMatch(title, results)) isLeaf = true;
+        } catch {
+          // Recherche échouée (réseau, clé...) : on garde la décision structurelle.
+        }
+      }
+
+      if (isLeaf) {
         if (!pathOverlapReason(relPath, imported)) {
           entries.push({ name: relPath, title: cleanTitle(entry.name), isDirectory: true, sizeBytes: null });
         }
       } else {
-        scanDir(absPath, relPath, imported, depth + 1, entries);
+        await scanDir(absPath, relPath, imported, depth + 1, entries, providerImpl);
       }
     } else {
       if (isNonFirstArchiveVolume(entry.name)) continue;
@@ -329,7 +374,7 @@ function scanDir(absDir, relPrefix, imported, depth, entries) {
 // que toute la ludothèque, utilisé quand on coche un dossier dans l'arborescence
 // navigable pour en sélectionner le contenu détecté sans importer le dossier
 // lui-même.
-importRouter.get("/scan", (req, res) => {
+importRouter.get("/scan", async (req, res) => {
   const relPath = typeof req.query.path === "string" ? req.query.path : "";
 
   if (!fs.existsSync(LIBRARY_DIR)) {
@@ -341,9 +386,12 @@ importRouter.get("/scan", (req, res) => {
     return res.status(400).json({ error: "invalid path" });
   }
 
+  const provider = listProviders().find((p) => p.configured);
+  const providerImpl = provider ? getProvider(provider.id) : null;
+
   const imported = alreadyImported();
   const entries = [];
-  scanDir(absPath, relPath, imported, 0, entries);
+  await scanDir(absPath, relPath, imported, 0, entries, providerImpl);
   entries.sort((a, b) => a.title.localeCompare(b.title));
 
   res.json({ libraryDir: LIBRARY_DIR, exists: true, entries });
@@ -626,7 +674,7 @@ importRouter.post("/preview", async (req, res) => {
 
   const imported = alreadyImported();
   const scanned = [];
-  scanDir(absPath, relPath, imported, 0, scanned);
+  await scanDir(absPath, relPath, imported, 0, scanned, providerImpl);
 
   const items = [];
   for (const entry of scanned) {
@@ -683,7 +731,7 @@ importRouter.post("/smart", async (req, res) => {
 
   const imported = alreadyImported();
   const scanned = [];
-  scanDir(LIBRARY_DIR, "", imported, 0, scanned);
+  await scanDir(LIBRARY_DIR, "", imported, 0, scanned, providerImpl);
 
   const created = [];
   const skipped = [];
