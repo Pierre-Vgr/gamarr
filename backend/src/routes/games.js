@@ -40,6 +40,8 @@ gamesRouter.get("/", (req, res) => {
   }
   if (category === "roms") {
     rows = rows.filter((r) => isRomGame(r.platforms));
+  } else if (category === "games") {
+    rows = rows.filter((r) => !isRomGame(r.platforms));
   }
 
   const games = rows.map(serialize);
@@ -59,28 +61,35 @@ gamesRouter.get("/facets", (req, res) => {
   const rows = db.prepare("SELECT source, genres, platforms, stores FROM games").all();
   const sources = new Set();
   const genres = new Set();
+  // Séparées : "platforms" alimente le filtre de la Bibliothèque (jeux PC), "romPlatforms"
+  // les sous-menus de la section Roms — sinon le filtre plateforme de la Bibliothèque
+  // proposerait des consoles qui n'y apparaissent jamais (catégorie "games" uniquement).
   const platforms = new Set();
+  const romPlatforms = new Set();
   const stores = new Map(); // slug -> name, pour afficher un nom lisible (Steam, GOG...)
-  let hasRoms = false;
 
   for (const r of rows) {
     if (r.source) sources.add(r.source);
     for (const g of JSON.parse(r.genres || "[]")) genres.add(g);
-    for (const p of JSON.parse(r.platforms || "[]")) platforms.add(p);
     for (const s of JSON.parse(r.stores || "[]")) {
       if (s.slug) stores.set(s.slug, s.name || s.slug);
     }
-    if (isRomGame(r.platforms)) hasRoms = true;
+    const gamePlatforms = JSON.parse(r.platforms || "[]");
+    if (isRomGame(r.platforms)) {
+      for (const p of gamePlatforms) romPlatforms.add(p);
+    } else {
+      for (const p of gamePlatforms) platforms.add(p);
+    }
   }
 
   res.json({
     sources: [...sources].sort(),
     genres: [...genres].sort(),
     platforms: [...platforms].sort(),
+    romPlatforms: [...romPlatforms].sort(),
     stores: [...stores.entries()]
       .map(([slug, name]) => ({ slug, name }))
       .sort((a, b) => a.name.localeCompare(b.name)),
-    hasRoms,
   });
 });
 

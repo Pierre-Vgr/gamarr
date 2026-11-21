@@ -12,6 +12,7 @@ import { STATUS_OPTIONS } from "./components/StatusBadge.jsx";
 
 const NAV_ITEMS = [
   { id: "library", label: "Bibliothèque" },
+  { id: "roms", label: "Roms" },
   { id: "wishlist", label: "Wishlist" },
   { id: "import", label: "Importer" },
   { id: "discover", label: "Découvrir" },
@@ -31,9 +32,8 @@ export default function App() {
   const [genre, setGenre] = useState("");
   const [platform, setPlatform] = useState("");
   const [store, setStore] = useState("");
-  const [category, setCategory] = useState("");
   const [sort, setSort] = useState("title");
-  const [facets, setFacets] = useState({ sources: [], genres: [], platforms: [], stores: [], hasRoms: false });
+  const [facets, setFacets] = useState({ sources: [], genres: [], platforms: [], romPlatforms: [], stores: [] });
   const [modalGame, setModalGame] = useState(undefined); // undefined = closed, null = new, object = edit
   const [detailGame, setDetailGame] = useState(null);
   const [releaseSearchGame, setReleaseSearchGame] = useState(null);
@@ -42,7 +42,7 @@ export default function App() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkRefreshing, setBulkRefreshing] = useState(false);
 
-  const isGridView = view === "library" || view === "wishlist";
+  const isGridView = view === "library" || view === "wishlist" || view === "roms";
 
   useEffect(() => {
     api
@@ -70,7 +70,10 @@ export default function App() {
     setError(null);
     try {
       const effectiveStatus = view === "wishlist" ? "wishlist" : status;
-      const params = { search, status: effectiveStatus, sort, source, genre, platform, store, category };
+      // "games" exclut les Roms de la Bibliothèque : elles ont désormais leur propre
+      // section, inutile qu'elles réapparaissent aussi ici.
+      const effectiveCategory = view === "roms" ? "roms" : view === "library" ? "games" : "";
+      const params = { search, status: effectiveStatus, sort, source, genre, platform, store, category: effectiveCategory };
       const data = await api.listGames(params);
       setGames(data);
       api.getGameFacets().then(setFacets).catch(() => {});
@@ -79,7 +82,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, source, genre, platform, store, category, sort, view, isGridView]);
+  }, [search, status, source, genre, platform, store, sort, view, isGridView]);
 
   useEffect(() => {
     load();
@@ -177,20 +180,23 @@ export default function App() {
             <button
               onClick={() => {
                 setView(item.id);
-                if (item.id === "library") {
-                  setStore("");
-                  setCategory("");
-                }
+                setStore("");
+                setPlatform("");
               }}
               className={`w-full text-left px-3 py-2 rounded font-medium ${
-                view === item.id && (item.id !== "library" || (store === "" && category === ""))
+                view === item.id &&
+                (item.id === "library"
+                  ? store === ""
+                  : item.id === "roms"
+                  ? platform === ""
+                  : true)
                   ? "bg-indigo-600 text-white"
                   : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
               {item.label}
             </button>
-            {item.id === "library" && (facets.stores.length > 0 || facets.hasRoms) && (
+            {item.id === "library" && facets.stores.length > 0 && (
               <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
                 {facets.stores.map((s) => (
                   <button
@@ -198,7 +204,6 @@ export default function App() {
                     onClick={() => {
                       setView("library");
                       setStore(s.slug);
-                      setCategory("");
                     }}
                     className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
                       view === "library" && store === s.slug
@@ -209,22 +214,26 @@ export default function App() {
                     {s.name}
                   </button>
                 ))}
-                {facets.hasRoms && (
+              </div>
+            )}
+            {item.id === "roms" && facets.romPlatforms.length > 0 && (
+              <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
+                {facets.romPlatforms.map((p) => (
                   <button
+                    key={p}
                     onClick={() => {
-                      setView("library");
-                      setCategory("roms");
-                      setStore("");
+                      setView("roms");
+                      setPlatform(p);
                     }}
                     className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
-                      view === "library" && category === "roms"
+                      view === "roms" && platform === p
                         ? "bg-indigo-600 text-white"
                         : "text-slate-500 hover:bg-slate-800 hover:text-white"
                     }`}
                   >
-                    🕹️ Roms
+                    {p}
                   </button>
-                )}
+                ))}
               </div>
             )}
           </div>
@@ -300,18 +309,20 @@ export default function App() {
                   </option>
                 ))}
               </select>
-              <select
-                className="bg-slate-800 rounded px-3 py-2"
-                value={platform}
-                onChange={(e) => setPlatform(e.target.value)}
-              >
-                <option value="">Toutes les plateformes</option>
-                {facets.platforms.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
+              {view !== "roms" && (
+                <select
+                  className="bg-slate-800 rounded px-3 py-2"
+                  value={platform}
+                  onChange={(e) => setPlatform(e.target.value)}
+                >
+                  <option value="">Toutes les plateformes</option>
+                  {facets.platforms.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              )}
               <select
                 className="bg-slate-800 rounded px-3 py-2"
                 value={sort}
@@ -383,7 +394,11 @@ export default function App() {
               <p className="text-slate-400">Chargement...</p>
             ) : games.length === 0 ? (
               <p className="text-slate-400">
-                {view === "wishlist" ? "Aucun jeu en wishlist." : "Aucun jeu dans la bibliothèque pour le moment."}
+                {view === "wishlist"
+                  ? "Aucun jeu en wishlist."
+                  : view === "roms"
+                  ? "Aucune Rom dans la bibliothèque."
+                  : "Aucun jeu dans la bibliothèque pour le moment."}
               </p>
             ) : (
               <div className="grid grid-cols-[repeat(auto-fill,170px)] gap-4">
