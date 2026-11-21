@@ -143,15 +143,41 @@ export default function App() {
       <aside className="w-56 shrink-0 bg-slate-900 border-r border-slate-800 p-4 flex flex-col gap-1">
         <h1 className="text-xl font-bold mb-4 px-2">🎮 Gamarr</h1>
         {NAV_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setView(item.id)}
-            className={`text-left px-3 py-2 rounded font-medium ${
-              view === item.id ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            {item.label}
-          </button>
+          <div key={item.id}>
+            <button
+              onClick={() => {
+                setView(item.id);
+                if (item.id === "library") setPlatform("");
+              }}
+              className={`w-full text-left px-3 py-2 rounded font-medium ${
+                view === item.id && (item.id !== "library" || platform === "")
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              {item.label}
+            </button>
+            {item.id === "library" && facets.platforms.length > 0 && (
+              <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
+                {facets.platforms.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => {
+                      setView("library");
+                      setPlatform(p);
+                    }}
+                    className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                      view === "library" && platform === p
+                        ? "bg-indigo-600 text-white"
+                        : "text-slate-500 hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </aside>
 
