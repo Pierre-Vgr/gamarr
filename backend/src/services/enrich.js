@@ -76,9 +76,11 @@ export async function enrichGame(game, { query, providerId, externalId } = {}) {
     game
   );
 
-  // RAWG/IGDB ne renvoient jamais une plateforme console (filterPcPlatforms ne garde
-  // que PC/macOS/Linux) : sans ce filet de sécurité, actualiser les métadonnées d'une
-  // Rom effacerait la plateforme déduite de son chemin à l'import.
+  // Reste vide seulement quand le provider lui-même n'a aucune info de plateforme
+  // (ex: ROM dont le match RAWG/IGDB est incertain) : filterPcPlatforms renvoie déjà
+  // les vraies plateformes console quand le jeu n'a pas de version PC (ex: Bloodborne).
+  // Filet de dernier recours ici, sinon actualiser les métadonnées d'une Rom non
+  // matchée effacerait la plateforme déduite de son chemin à l'import.
   let platforms = details.platforms || [];
   if (platforms.length === 0 && game.import_path) {
     const guess = guessFallbackPlatforms(game.import_path, game.title);

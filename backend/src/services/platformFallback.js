@@ -7,10 +7,8 @@
 // un filet de sécurité quand aucune métadonnée n'a déjà renseigné de plateforme.
 //
 // Partagé entre l'import (routes/import.js) et l'actualisation des métadonnées
-// (services/enrich.js) : filterPcPlatforms() réduit toujours les plateformes
-// Switch/PS4/... à un tableau vide (seules PC/macOS/Linux sont gardées), donc
-// une actualisation depuis RAWG/IGDB écraserait sinon la plateforme déduite ici
-// par le même tableau vide.
+// (services/enrich.js), en dernier recours quand le provider n'a lui-même renvoyé
+// aucune plateforme (ex: ROM dont le match RAWG/IGDB est incertain ou absent).
 const PLATFORM_PATH_HINTS = [
   { re: /\bnes\b/i, platform: "NES" },
   { re: /\bsnes\b|super\s*nintendo/i, platform: "SNES" },
