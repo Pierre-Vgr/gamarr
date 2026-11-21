@@ -8,6 +8,16 @@ const BROWSE_MODES = [
   { value: "all-time", label: "Tout temps" },
 ];
 
+// Normalisation simple pour comparer un titre RAWG/IGDB à un nom de jeu Steam :
+// suffisant pour ce signal informatif, pas besoin de la rigueur du matching
+// d'import (apostrophes, tags de groupe...).
+function normalizeTitle(s) {
+  return (s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 export function DiscoverView() {
   const [providers, setProviders] = useState([]);
   const [provider, setProvider] = useState(null);
@@ -20,6 +30,7 @@ export function DiscoverView() {
   const [adding, setAdding] = useState(null);
   const [detailResult, setDetailResult] = useState(null);
   const [browseMode, setBrowseMode] = useState("trending");
+  const [steamTitles, setSteamTitles] = useState(null);
 
   const canBrowse = provider === "rawg";
 
@@ -32,6 +43,15 @@ export function DiscoverView() {
         setProvider(first ? first.id : "rawg");
       })
       .catch(() => setProvider("rawg"));
+
+    // Best-effort : signale juste les jeux déjà possédés sur Steam, pas bloquant
+    // si Steam n'est pas configuré ou si le profil/détails sont privés.
+    api
+      .getSteamLibrary()
+      .then((lib) => {
+        if (lib.configured) setSteamTitles(new Set(lib.titles.map(normalizeTitle)));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -193,6 +213,11 @@ export function DiscoverView() {
                   <div className="w-full h-full flex items-center justify-center text-slate-600 text-sm">
                     Pas de cover
                   </div>
+                )}
+                {steamTitles?.has(normalizeTitle(r.title)) && (
+                  <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-900/90 text-emerald-400">
+                    Déjà sur Steam
+                  </span>
                 )}
               </button>
               <div className="p-3">

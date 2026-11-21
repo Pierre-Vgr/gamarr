@@ -91,4 +91,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ PROWLARR_URL: url, PROWLARR_API_KEY: apiKey }),
     }),
+  testSteam: (apiKey, steamId) =>
+    request("/settings/test/steam", {
+      method: "POST",
+      body: JSON.stringify({ STEAM_API_KEY: apiKey, STEAM_ID: steamId }),
+    }),
+
+  steamStatus: () => request("/steam/status"),
+  getSteamLibrary: () => request("/steam/library"),
 };
