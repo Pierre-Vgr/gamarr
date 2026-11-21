@@ -33,6 +33,8 @@ export const api = {
   bulkDeleteGames: (ids) => request("/games/bulk-delete", { method: "POST", body: JSON.stringify({ ids }) }),
   refreshMetadata: (id, data = {}) =>
     request(`/games/${id}/refresh-metadata`, { method: "POST", body: JSON.stringify(data) }),
+  bulkRefreshMetadata: (ids) =>
+    request("/games/bulk/refresh-metadata", { method: "POST", body: JSON.stringify({ ids }) }),
 
   listProviders: () => request("/metadata/providers"),
   searchMetadata: (q, provider = "rawg", limit) =>

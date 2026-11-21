@@ -171,6 +171,36 @@ gamesRouter.put("/:id", (req, res) => {
   res.json(serialize(row));
 });
 
+// Déclarée avant "/:id/refresh-metadata" : Express matcherait sinon "bulk" comme
+// valeur de :id sur cette route dynamique, vu la structure de chemin identique.
+// Séquentiel (pas de parallélisation) : on reste poli envers l'API du provider de
+// métadonnées configuré plutôt que de l'arroser de requêtes simultanées pour une
+// sélection potentiellement large.
+gamesRouter.post("/bulk/refresh-metadata", async (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: "ids must be a non-empty array" });
+  }
+
+  let updated = 0;
+  const failed = [];
+  for (const id of ids) {
+    const existing = db.prepare("SELECT * FROM games WHERE id = ?").get(id);
+    if (!existing) {
+      failed.push({ id, title: null, error: "Jeu introuvable" });
+      continue;
+    }
+    try {
+      await enrichGame(serialize(existing));
+      updated++;
+    } catch (err) {
+      failed.push({ id, title: existing.title, error: err.message });
+    }
+  }
+
+  res.json({ updated, failed });
+});
+
 gamesRouter.post("/:id/refresh-metadata", async (req, res) => {
   const existing = db.prepare("SELECT * FROM games WHERE id = ?").get(req.params.id);
   if (!existing) return res.status(404).json({ error: "Game not found" });

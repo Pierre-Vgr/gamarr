@@ -40,6 +40,7 @@ export default function App() {
   const [prowlarrConfigured, setProwlarrConfigured] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkRefreshing, setBulkRefreshing] = useState(false);
 
   const isGridView = view === "library" || view === "wishlist";
 
@@ -124,6 +125,29 @@ export default function App() {
       setError(err.message);
     } finally {
       setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkRefresh() {
+    if (selectedIds.size === 0) return;
+    setBulkBusy(true);
+    setBulkRefreshing(true);
+    try {
+      const { updated, failed } = await api.bulkRefreshMetadata(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      await load();
+      if (failed.length > 0) {
+        setError(
+          `${updated} jeu(x) actualisé(s), ${failed.length} échec(s) : ${failed
+            .map((f) => f.title || f.id)
+            .join(", ")}`
+        );
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBulkBusy(false);
+      setBulkRefreshing(false);
     }
   }
 
@@ -330,6 +354,13 @@ export default function App() {
                       </option>
                     ))}
                   </select>
+                  <button
+                    onClick={handleBulkRefresh}
+                    disabled={bulkBusy}
+                    className="px-3 py-1 rounded bg-slate-700 hover:bg-slate-600 text-xs font-medium disabled:opacity-50"
+                  >
+                    {bulkRefreshing ? "Actualisation..." : "Actualiser les métadonnées"}
+                  </button>
                   <button
                     onClick={handleBulkDelete}
                     disabled={bulkBusy}
