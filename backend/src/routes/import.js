@@ -305,13 +305,58 @@ function subdirsLookLikeGames(absDir) {
   return gameLike >= Math.ceil(realSubdirs.length / 2);
 }
 
-async function scanDir(absDir, relPrefix, imported, depth, entries, providerImpl) {
+// Limite le nombre de recherches simultanées envoyées au fournisseur de
+// métadonnées pendant un scan (poli vis-à-vis de l'API, évite d'ouvrir des
+// dizaines de requêtes d'un coup sur une grosse ludothèque), et abandonne une
+// recherche individuelle trop lente plutôt que de bloquer tout le scan dessus.
+const SCAN_SEARCH_CONCURRENCY = 5;
+const SCAN_SEARCH_TIMEOUT_MS = 4000;
+
+function createLimiter(concurrency) {
+  let active = 0;
+  const queue = [];
+  function runNext() {
+    if (active >= concurrency || queue.length === 0) return;
+    active++;
+    const { fn, resolve, reject } = queue.shift();
+    fn().then(
+      (value) => {
+        active--;
+        resolve(value);
+        runNext();
+      },
+      (err) => {
+        active--;
+        reject(err);
+        runNext();
+      }
+    );
+  }
+  return function limit(fn) {
+    return new Promise((resolve, reject) => {
+      queue.push({ fn, resolve, reject });
+      runNext();
+    });
+  };
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("search timeout")), ms)),
+  ]);
+}
+
+async function scanDir(absDir, relPrefix, imported, depth, entries, providerImpl, limiter) {
   let dirents;
   try {
     dirents = fs.readdirSync(absDir, { withFileTypes: true });
   } catch {
     return;
   }
+
+  const toRecurse = [];
+  const pendingChecks = [];
 
   for (const entry of dirents) {
     if (entry.name.startsWith(".")) continue;
@@ -337,24 +382,22 @@ async function scanDir(absDir, relPrefix, imported, depth, entries, providerImpl
       // seule fausse fiche cherchant littéralement "GOG" ou "STEAMRIP".
       const looksLikeArchiveCategory = standaloneArchives > 1;
 
-      let isLeaf = depth >= MAX_SCAN_DEPTH || (files > subdirs && !looksLikeArchiveCategory);
+      const structuralLeaf = depth >= MAX_SCAN_DEPTH || (files > subdirs && !looksLikeArchiveCategory);
 
-      if (!isLeaf && depth < MAX_SCAN_DEPTH && providerImpl && !subdirsLookLikeGames(absPath)) {
-        try {
-          const title = cleanTitle(entry.name);
-          const results = await providerImpl.search(title);
-          if (findConfidentMatch(title, results)) isLeaf = true;
-        } catch {
-          // Recherche échouée (réseau, clé...) : on garde la décision structurelle.
-        }
-      }
-
-      if (isLeaf) {
+      if (structuralLeaf) {
         if (!pathOverlapReason(relPath, imported)) {
           entries.push({ name: relPath, title: cleanTitle(entry.name), isDirectory: true, sizeBytes: null });
         }
+        continue;
+      }
+
+      // Cas ambigu (ratio fichiers/sous-dossiers en faveur d'une catégorie) : on
+      // reporte la vérification par le nom à plus tard pour la paralléliser avec
+      // les autres dossiers du même niveau plutôt que d'attendre une par une.
+      if (depth < MAX_SCAN_DEPTH && providerImpl && !subdirsLookLikeGames(absPath)) {
+        pendingChecks.push({ absPath, relPath, name: entry.name });
       } else {
-        await scanDir(absPath, relPath, imported, depth + 1, entries, providerImpl);
+        toRecurse.push({ absPath, relPath });
       }
     } else {
       if (isNonFirstArchiveVolume(entry.name)) continue;
@@ -368,6 +411,35 @@ async function scanDir(absDir, relPrefix, imported, depth, entries, providerImpl
       entries.push({ name: relPath, title: cleanTitle(entry.name), isDirectory: false, sizeBytes });
     }
   }
+
+  // Vérifications réseau des dossiers ambigus de ce niveau : en parallèle (limite
+  // de concurrence partagée sur tout le scan), pas une par une. Une recherche en
+  // échec ou trop lente retombe sur la décision structurelle (catégorie).
+  if (pendingChecks.length > 0) {
+    await Promise.all(
+      pendingChecks.map(async ({ absPath, relPath, name }) => {
+        const title = cleanTitle(name);
+        try {
+          const results = await limiter(() => withTimeout(providerImpl.search(title), SCAN_SEARCH_TIMEOUT_MS));
+          if (findConfidentMatch(title, results)) {
+            if (!pathOverlapReason(relPath, imported)) {
+              entries.push({ name: relPath, title, isDirectory: true, sizeBytes: null });
+            }
+            return;
+          }
+        } catch {
+          // Recherche échouée ou trop lente : on garde la décision structurelle.
+        }
+        toRecurse.push({ absPath, relPath });
+      })
+    );
+  }
+
+  await Promise.all(
+    toRecurse.map(({ absPath, relPath }) =>
+      scanDir(absPath, relPath, imported, depth + 1, entries, providerImpl, limiter)
+    )
+  );
 }
 
 // path (optionnel) : limite le scan heuristique à un sous-dossier donné plutôt
@@ -386,12 +458,13 @@ importRouter.get("/scan", async (req, res) => {
     return res.status(400).json({ error: "invalid path" });
   }
 
-  const provider = listProviders().find((p) => p.configured);
-  const providerImpl = provider ? getProvider(provider.id) : null;
-
+  // Pas de vérification réseau ici : /scan doit rester instantané pour la simple
+  // navigation/comptage (bouton "Sélectionner ce dossier" inclus). La
+  // désambiguïsation par métadonnées plus coûteuse n'est faite que par
+  // /smart et /preview, qui font de toute façon déjà des recherches réseau.
   const imported = alreadyImported();
   const entries = [];
-  await scanDir(absPath, relPath, imported, 0, entries, providerImpl);
+  await scanDir(absPath, relPath, imported, 0, entries, null, null);
   entries.sort((a, b) => a.title.localeCompare(b.title));
 
   res.json({ libraryDir: LIBRARY_DIR, exists: true, entries });
@@ -671,10 +744,11 @@ importRouter.post("/preview", async (req, res) => {
 
   const provider = listProviders().find((p) => p.configured);
   const providerImpl = provider ? getProvider(provider.id) : null;
+  const limiter = createLimiter(SCAN_SEARCH_CONCURRENCY);
 
   const imported = alreadyImported();
   const scanned = [];
-  await scanDir(absPath, relPath, imported, 0, scanned, providerImpl);
+  await scanDir(absPath, relPath, imported, 0, scanned, providerImpl, limiter);
 
   const items = [];
   for (const entry of scanned) {
@@ -728,10 +802,11 @@ importRouter.post("/smart", async (req, res) => {
     return res.status(400).json({ error: "Aucun provider de métadonnées configuré" });
   }
   const providerImpl = getProvider(provider.id);
+  const limiter = createLimiter(SCAN_SEARCH_CONCURRENCY);
 
   const imported = alreadyImported();
   const scanned = [];
-  await scanDir(LIBRARY_DIR, "", imported, 0, scanned, providerImpl);
+  await scanDir(LIBRARY_DIR, "", imported, 0, scanned, providerImpl, limiter);
 
   const created = [];
   const skipped = [];
