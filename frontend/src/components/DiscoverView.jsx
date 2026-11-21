@@ -31,6 +31,7 @@ export function DiscoverView() {
   const [detailResult, setDetailResult] = useState(null);
   const [browseMode, setBrowseMode] = useState("trending");
   const [steamTitles, setSteamTitles] = useState(null);
+  const [libraryTitles, setLibraryTitles] = useState(null);
 
   const canBrowse = provider === "rawg";
 
@@ -43,6 +44,14 @@ export function DiscoverView() {
         setProvider(first ? first.id : "rawg");
       })
       .catch(() => setProvider("rawg"));
+
+    // Signal informatif (pas bloquant, basé sur le titre comme pour Steam) : un jeu déjà
+    // en bibliothèque, quel que soit son statut (wishlist, backlog...), évite de le
+    // redemander sans s'en rendre compte en parcourant Découvrir.
+    api
+      .listGames({})
+      .then((games) => setLibraryTitles(new Set(games.map((g) => normalizeTitle(g.title)))))
+      .catch(() => {});
 
     // Best-effort : signale juste les jeux déjà possédés sur Steam, pas bloquant
     // si Steam n'est pas configuré ou si le profil/détails sont privés.
@@ -217,6 +226,11 @@ export function DiscoverView() {
                 {steamTitles?.has(normalizeTitle(r.title)) && (
                   <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-900/90 text-emerald-400">
                     Déjà sur Steam
+                  </span>
+                )}
+                {libraryTitles?.has(normalizeTitle(r.title)) && (
+                  <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-900/90 text-sky-400">
+                    Déjà en bibliothèque
                   </span>
                 )}
               </button>

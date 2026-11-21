@@ -18,6 +18,16 @@ export function isConfigured() {
   return Boolean(getSecret("PROWLARR_URL") && getSecret("PROWLARR_API_KEY"));
 }
 
+// Simple correspondance "le titre contient ce mot" (groupe de release, tag repack...),
+// insensible à la casse — pas de regex ni de découpage par mot, pour rester prévisible
+// pour quelqu'un qui tape juste "fitgirl, dodi" dans les réglages.
+function parseTerms(raw) {
+  return (raw || "")
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export async function searchReleases(query) {
   const url = new URL(`${baseUrl()}/api/v1/search`);
   url.searchParams.set("query", query);
@@ -33,7 +43,7 @@ export async function searchReleases(query) {
   if (!res.ok) throw new Error(`Prowlarr search failed: ${res.status}`);
   const data = await res.json();
 
-  return data.map((r) => ({
+  const mapped = data.map((r) => ({
     guid: r.guid,
     indexerId: r.indexerId,
     title: r.title,
@@ -45,6 +55,18 @@ export async function searchReleases(query) {
     publishDate: r.publishDate || null,
     downloadUrl: r.downloadUrl || r.magnetUrl || null,
     infoUrl: r.infoUrl || null,
+  }));
+
+  const blocked = parseTerms(getSecret("PROWLARR_BLOCKED_TERMS"));
+  const preferred = parseTerms(getSecret("PROWLARR_PREFERRED_TERMS"));
+
+  const allowed = blocked.length
+    ? mapped.filter((r) => !blocked.some((term) => r.title.toLowerCase().includes(term)))
+    : mapped;
+
+  return allowed.map((r) => ({
+    ...r,
+    preferred: preferred.some((term) => r.title.toLowerCase().includes(term)),
   }));
 }
 

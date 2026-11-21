@@ -46,6 +46,18 @@ const SECTIONS = [
     fields: [
       { key: "PROWLARR_URL", label: "URL", type: "text", placeholder: "https://..." },
       { key: "PROWLARR_API_KEY", label: "Clé API", type: "password" },
+      {
+        key: "PROWLARR_PREFERRED_TERMS",
+        label: "Groupes/mots-clés préférés",
+        type: "text",
+        placeholder: "FitGirl, DODI (séparés par des virgules)",
+      },
+      {
+        key: "PROWLARR_BLOCKED_TERMS",
+        label: "Groupes/mots-clés bloqués",
+        type: "text",
+        placeholder: "CPY, RELOADED (séparés par des virgules)",
+      },
     ],
   },
   {
@@ -269,6 +281,11 @@ export function SettingsView() {
 
                   <p className="text-xs text-slate-500 mt-2">
                     Aucun tracker coché = recherche sur tous les trackers configurés dans Prowlarr.
+                  </p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Les releases bloquées sont exclues des résultats ; les préférées remontent en
+                    tête de liste (marquées ★). Comparaison simple sur le titre de la release,
+                    insensible à la casse.
                   </p>
                 </div>
               )}

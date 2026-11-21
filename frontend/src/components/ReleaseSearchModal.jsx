@@ -23,7 +23,7 @@ export function ReleaseSearchModal({ game, onClose, onUpdated }) {
     setError(null);
     try {
       const found = await api.searchReleases(query, game);
-      found.sort((a, b) => (b.seeders || 0) - (a.seeders || 0));
+      found.sort((a, b) => (b.preferred ? 1 : 0) - (a.preferred ? 1 : 0) || (b.seeders || 0) - (a.seeders || 0));
       setResults(found);
       // Trace la disponibilité pour le badge de statut (sorti mais aucune
       // release trouvée = "pas disponible"), best-effort.
@@ -96,6 +96,7 @@ export function ReleaseSearchModal({ game, onClose, onUpdated }) {
                 {results.map((r) => (
                   <tr key={r.guid} className="border-b border-slate-800/50 hover:bg-slate-800/50">
                     <td className="py-2 pr-2 max-w-md truncate" title={r.title}>
+                      {r.preferred && <span className="text-amber-400 mr-1" title="Correspond à un terme préféré">★</span>}
                       {r.title}
                     </td>
                     <td className="py-2 pr-2 text-slate-400">{r.indexer}</td>
