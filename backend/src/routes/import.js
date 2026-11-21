@@ -657,6 +657,8 @@ const PLATFORM_PATH_HINTS = [
   { re: /dreamcast/i, platform: "Dreamcast" },
   { re: /game\s*gear/i, platform: "Game Gear" },
 
+  { re: /playstation\s*5|\bps5\b/i, platform: "PlayStation 5" },
+  { re: /playstation\s*4|\bps4\b/i, platform: "PlayStation 4" },
   { re: /playstation\s*2|\bps2\b/i, platform: "PlayStation 2" },
   { re: /playstation\s*3|\bps3\b/i, platform: "PlayStation 3" },
   { re: /playstation\s*portable|\bpsp\b/i, platform: "PSP" },
@@ -694,6 +696,14 @@ function guessPlatformFromPath(relPath) {
 // chemin plutôt que de laisser "Plateforme inconnue" dans l'interface.
 function applyPlatformFallback(game, relPath) {
   if (game.platforms && game.platforms.length > 0) return game;
+  // Un projet de "recompilation statique" (Zelda64Recomp, sm64coopdx...) compile le jeu
+  // console d'origine en un exécutable PC natif : malgré un chemin qui mentionne souvent
+  // encore la console d'origine (ex: "N64/Zelda OOT Recomp"), il doit être classé PC et
+  // non comme Rom.
+  if (/recomp/i.test(relPath) || /recomp/i.test(game.title || "")) {
+    db.prepare("UPDATE games SET platforms = ? WHERE id = ?").run(JSON.stringify(["PC"]), game.id);
+    return { ...game, platforms: ["PC"] };
+  }
   const guess = guessPlatformFromPath(relPath);
   if (!guess) return game;
   db.prepare("UPDATE games SET platforms = ? WHERE id = ?").run(JSON.stringify([guess]), game.id);
