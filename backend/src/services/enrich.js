@@ -2,6 +2,7 @@ import { db } from "../db/index.js";
 import { serializeGame } from "../models/game.js";
 import { getProvider, listProviders } from "./metadataProviders/index.js";
 import { extractSteamAppId, getProtonTier } from "./protondb.js";
+import { guessFallbackPlatforms } from "./platformFallback.js";
 
 const updateMetadata = db.prepare(`
   UPDATE games SET
@@ -75,12 +76,21 @@ export async function enrichGame(game, { query, providerId, externalId } = {}) {
     game
   );
 
+  // RAWG/IGDB ne renvoient jamais une plateforme console (filterPcPlatforms ne garde
+  // que PC/macOS/Linux) : sans ce filet de sécurité, actualiser les métadonnées d'une
+  // Rom effacerait la plateforme déduite de son chemin à l'import.
+  let platforms = details.platforms || [];
+  if (platforms.length === 0 && game.import_path) {
+    const guess = guessFallbackPlatforms(game.import_path, game.title);
+    if (guess) platforms = guess;
+  }
+
   updateMetadata.run({
     id: game.id,
     cover_url: details.coverUrl || null,
     description: details.description || null,
     release_date: details.releaseDate || null,
-    platforms: JSON.stringify(details.platforms || []),
+    platforms: JSON.stringify(platforms),
     genres: JSON.stringify(details.genres || []),
     external_id: details.externalId || null,
     source: provider.id,
