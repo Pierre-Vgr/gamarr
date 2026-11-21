@@ -119,6 +119,15 @@ export default function App() {
     });
   }
 
+  // Centralise la navigation depuis un sous-élément de la sidebar : remet toujours
+  // store/platform à vide sauf override explicite, pour ne jamais hériter du filtre
+  // d'une autre section (ex: une plateforme Roms qui traînerait en vue Bibliothèque).
+  function goTo(nextView, overrides = {}) {
+    setView(nextView);
+    setStore(overrides.store ?? "");
+    setPlatform(overrides.platform ?? "");
+  }
+
   function toggleSelectGame(id) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -193,28 +202,20 @@ export default function App() {
       <aside className="w-56 shrink-0 bg-slate-900 border-r border-slate-800 p-4 flex flex-col gap-1 sticky top-0 h-screen overflow-y-auto">
         <h1 className="text-xl font-bold mb-4 px-2">🎮 Gamarr</h1>
         {NAV_ITEMS.map((item) => {
-          const hasSubmenu =
-            (item.id === "library" && facets.stores.length > 0) ||
-            (item.id === "roms" && facets.romPlatforms.length > 0) ||
-            item.id === "wishlist";
+          const hasSubmenu = item.id === "library" || item.id === "roms" || item.id === "wishlist";
           const expanded = expandedMenus.has(item.id);
+          // Le menu parent replie/déplie son sous-menu ; accéder à son contenu se fait
+          // toujours via un sous-élément ("Tout" inclus) pour ne pas avoir à deviner si
+          // un clic sur le parent va naviguer ou juste (re)fermer la liste.
+          const isSectionActive =
+            item.id === "wishlist" ? view === "wishlist" || view === "discover" : view === item.id;
 
           return (
             <div key={item.id}>
               <button
-                onClick={() => {
-                  setView(item.id);
-                  setStore("");
-                  setPlatform("");
-                  if (hasSubmenu) toggleMenu(item.id);
-                }}
+                onClick={() => (hasSubmenu ? toggleMenu(item.id) : setView(item.id))}
                 className={`w-full flex items-center justify-between gap-2 text-left px-3 py-2 rounded font-medium ${
-                  view === item.id &&
-                  (item.id === "library"
-                    ? store === ""
-                    : item.id === "roms"
-                    ? platform === ""
-                    : true)
+                  isSectionActive
                     ? "bg-indigo-600 text-white"
                     : "text-slate-400 hover:bg-slate-800 hover:text-white"
                 }`}
@@ -222,15 +223,22 @@ export default function App() {
                 <span>{item.label}</span>
                 {hasSubmenu && <span className="text-xs">{expanded ? "▾" : "▸"}</span>}
               </button>
-              {item.id === "library" && hasSubmenu && expanded && (
+              {item.id === "library" && expanded && (
                 <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
+                  <button
+                    onClick={() => goTo("library")}
+                    className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                      view === "library" && store === ""
+                        ? "bg-indigo-600 text-white"
+                        : "text-slate-500 hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    Tout
+                  </button>
                   {facets.stores.map((s) => (
                     <button
                       key={s.slug}
-                      onClick={() => {
-                        setView("library");
-                        setStore(s.slug);
-                      }}
+                      onClick={() => goTo("library", { store: s.slug })}
                       className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
                         view === "library" && store === s.slug
                           ? "bg-indigo-600 text-white"
@@ -242,15 +250,22 @@ export default function App() {
                   ))}
                 </div>
               )}
-              {item.id === "roms" && hasSubmenu && expanded && (
+              {item.id === "roms" && expanded && (
                 <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
+                  <button
+                    onClick={() => goTo("roms")}
+                    className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                      view === "roms" && platform === ""
+                        ? "bg-indigo-600 text-white"
+                        : "text-slate-500 hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    Tout
+                  </button>
                   {facets.romPlatforms.map((p) => (
                     <button
                       key={p}
-                      onClick={() => {
-                        setView("roms");
-                        setPlatform(p);
-                      }}
+                      onClick={() => goTo("roms", { platform: p })}
                       className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
                         view === "roms" && platform === p
                           ? "bg-indigo-600 text-white"
@@ -265,7 +280,17 @@ export default function App() {
               {item.id === "wishlist" && expanded && (
                 <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
                   <button
-                    onClick={() => setView("discover")}
+                    onClick={() => goTo("wishlist")}
+                    className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                      view === "wishlist"
+                        ? "bg-indigo-600 text-white"
+                        : "text-slate-500 hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    Wishlist
+                  </button>
+                  <button
+                    onClick={() => goTo("discover")}
                     className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
                       view === "discover"
                         ? "bg-indigo-600 text-white"
