@@ -646,6 +646,8 @@ const PLATFORM_PATH_HINTS = [
   { re: /nintendo\s*ds\b|\bnds\b/i, platform: "Nintendo DS" },
   { re: /\b3ds\b/i, platform: "Nintendo 3DS" },
   { re: /famicom/i, platform: "NES" },
+  { re: /nintendo\s*switch\s*2|\bswitch\s*2\b/i, platform: "Nintendo Switch 2" },
+  { re: /nintendo\s*switch|\bswitch\b/i, platform: "Nintendo Switch" },
 
   { re: /mega\s*drive|genesis/i, platform: "Genesis" },
   { re: /master\s*system|mark\s*iii/i, platform: "SEGA Master System" },
