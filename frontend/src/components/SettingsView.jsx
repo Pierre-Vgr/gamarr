@@ -48,12 +48,21 @@ const SECTIONS = [
       { key: "PROWLARR_API_KEY", label: "Clé API", type: "password" },
     ],
   },
+  {
+    id: "steam",
+    title: "Steam",
+    fields: [
+      { key: "STEAM_API_KEY", label: "Clé API", type: "password", placeholder: "steamcommunity.com/dev/apikey" },
+      { key: "STEAM_ID", label: "SteamID64", type: "text", placeholder: "76561198..." },
+    ],
+  },
 ];
 
 export function SettingsView() {
   const [form, setForm] = useState(null);
   const [providers, setProviders] = useState([]);
   const [prowlarr, setProwlarr] = useState(null);
+  const [steam, setSteam] = useState(null);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
@@ -64,9 +73,10 @@ export function SettingsView() {
 
   async function loadStatus() {
     try {
-      const [p, pr] = await Promise.all([api.listProviders(), api.prowlarrStatus()]);
+      const [p, pr, st] = await Promise.all([api.listProviders(), api.prowlarrStatus(), api.steamStatus()]);
       setProviders(p);
       setProwlarr(pr);
+      setSteam(st);
     } catch (err) {
       setError(err.message);
     }
@@ -89,6 +99,8 @@ export function SettingsView() {
         result = await api.testRawg(form.RAWG_API_KEY);
       } else if (sectionId === "igdb") {
         result = await api.testIgdb(form.IGDB_CLIENT_ID, form.IGDB_CLIENT_SECRET);
+      } else if (sectionId === "steam") {
+        result = await api.testSteam(form.STEAM_API_KEY, form.STEAM_ID);
       } else {
         result = await api.testProwlarr(form.PROWLARR_URL, form.PROWLARR_API_KEY);
       }
@@ -164,6 +176,7 @@ export function SettingsView() {
           <StatusRow key={p.id} name={p.id.toUpperCase()} configured={p.configured} />
         ))}
         {prowlarr && <StatusRow name="Prowlarr" configured={prowlarr.configured} />}
+        {steam && <StatusRow name="Steam" configured={steam.configured} />}
       </div>
 
       {!form ? (
@@ -198,6 +211,22 @@ export function SettingsView() {
                   />
                 </div>
               ))}
+
+              {section.id === "steam" && (
+                <p className="text-xs text-slate-500">
+                  Clé API sur{" "}
+                  <a
+                    href="https://steamcommunity.com/dev/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    steamcommunity.com/dev/apikey
+                  </a>
+                  . Le profil et le détail des jeux doivent être publics pour que la liste des jeux
+                  possédés soit accessible (utilisée dans Découvrir pour signaler les doublons).
+                </p>
+              )}
 
               {section.id === "prowlarr" && (
                 <div className="pt-1">

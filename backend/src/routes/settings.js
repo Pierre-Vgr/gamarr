@@ -3,6 +3,7 @@ import { getAllSecrets, updateSecrets, hasSecretsFile } from "../config/secrets.
 import { testRawgKey } from "../services/metadataProviders/rawg.js";
 import { testIgdbCredentials } from "../services/metadataProviders/igdb.js";
 import { testProwlarrConnection } from "../services/prowlarr.js";
+import { testSteamConnection } from "../services/steam.js";
 
 export const settingsRouter = Router();
 
@@ -13,6 +14,8 @@ const EDITABLE_FIELDS = [
   "PROWLARR_URL",
   "PROWLARR_API_KEY",
   "PROWLARR_INDEXER_IDS",
+  "STEAM_API_KEY",
+  "STEAM_ID",
 ];
 
 function withDefaults(secrets) {
@@ -74,4 +77,13 @@ settingsRouter.post("/test/prowlarr", async (req, res) => {
   } catch (err) {
     res.status(502).json({ valid: false, message: err.message });
   }
+});
+
+settingsRouter.post("/test/steam", async (req, res) => {
+  const { STEAM_API_KEY, STEAM_ID } = req.body;
+  if (!STEAM_API_KEY || !STEAM_ID) {
+    return res.json({ valid: false, message: "Clé API ou SteamID manquant" });
+  }
+
+  res.json(await testSteamConnection(STEAM_API_KEY, STEAM_ID));
 });

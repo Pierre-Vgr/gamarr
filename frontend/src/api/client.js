@@ -53,11 +53,29 @@ export const api = {
   importEntry: (data) => request("/import/entry", { method: "POST", body: JSON.stringify(data) }),
 
   prowlarrStatus: () => request("/prowlarr/status"),
-  searchReleases: (q) => request(`/prowlarr/search?q=${encodeURIComponent(q)}`),
-  grabRelease: (guid, indexerId) =>
-    request("/prowlarr/grab", { method: "POST", body: JSON.stringify({ guid, indexerId }) }),
+  searchReleases: (q, game) =>
+    request(
+      `/prowlarr/search?q=${encodeURIComponent(q)}${game?.id ? `&gameId=${game.id}` : ""}${
+        game?.title ? `&gameTitle=${encodeURIComponent(game.title)}` : ""
+      }`
+    ),
+  grabRelease: (release, game) =>
+    request("/prowlarr/grab", {
+      method: "POST",
+      body: JSON.stringify({
+        guid: release.guid,
+        indexerId: release.indexerId,
+        releaseTitle: release.title,
+        indexer: release.indexer,
+        sizeBytes: release.sizeBytes,
+        gameId: game?.id,
+        gameTitle: game?.title,
+      }),
+    }),
   listProwlarrIndexers: (url, apiKey) =>
     request("/prowlarr/indexers", { method: "POST", body: JSON.stringify({ url, apiKey }) }),
+
+  getHistory: (limit) => request(`/history${limit ? `?limit=${limit}` : ""}`),
 
   getSettings: () => request("/settings"),
   updateSettings: (data) => request("/settings", { method: "PUT", body: JSON.stringify(data) }),
@@ -73,4 +91,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ PROWLARR_URL: url, PROWLARR_API_KEY: apiKey }),
     }),
+  testSteam: (apiKey, steamId) =>
+    request("/settings/test/steam", {
+      method: "POST",
+      body: JSON.stringify({ STEAM_API_KEY: apiKey, STEAM_ID: steamId }),
+    }),
+
+  steamStatus: () => request("/steam/status"),
+  getSteamLibrary: () => request("/steam/library"),
 };

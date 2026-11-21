@@ -7,6 +7,7 @@ import { ImportView } from "./components/ImportView.jsx";
 import { DiscoverView } from "./components/DiscoverView.jsx";
 import { ReleaseSearchModal } from "./components/ReleaseSearchModal.jsx";
 import { SettingsView } from "./components/SettingsView.jsx";
+import { HistoryView } from "./components/HistoryView.jsx";
 import { STATUS_OPTIONS } from "./components/StatusBadge.jsx";
 
 const NAV_ITEMS = [
@@ -14,6 +15,7 @@ const NAV_ITEMS = [
   { id: "wishlist", label: "Wishlist" },
   { id: "import", label: "Importer" },
   { id: "discover", label: "Découvrir" },
+  { id: "history", label: "Historique" },
   { id: "settings", label: "Paramètres" },
 ];
 
@@ -224,6 +226,7 @@ export default function App() {
 
         {view === "import" && <ImportView onImported={load} />}
         {view === "discover" && <DiscoverView />}
+        {view === "history" && <HistoryView />}
         {view === "settings" && <SettingsView />}
 
         {isGridView && (

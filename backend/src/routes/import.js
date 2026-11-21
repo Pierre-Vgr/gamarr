@@ -591,6 +591,25 @@ function isDuplicateExternal(source, externalId) {
   );
 }
 
+// Si une fiche avec ce (source, externalId) existe déjà EN WISHLIST, on la fait
+// passer en bibliothèque réelle (statut + chemin d'import) au lieu de se
+// contenter d'ignorer l'entrée détectée : elle n'est plus seulement "demandée",
+// elle est maintenant possédée. Si elle existe déjà hors wishlist (déjà
+// possédée sous un autre dossier), on ne touche à rien et on le signale.
+function resolveDuplicateExternal(source, externalId, importPath) {
+  if (!externalId) return null;
+  const existing = db.prepare("SELECT * FROM games WHERE source = ? AND external_id = ?").get(source, externalId);
+  if (!existing) return null;
+
+  if (existing.status === "wishlist") {
+    db.prepare(
+      "UPDATE games SET status = 'backlog', import_path = ?, availability = NULL, updated_at = datetime('now') WHERE id = ?"
+    ).run(importPath, existing.id);
+    return { upgraded: true, game: serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(existing.id)) };
+  }
+  return { upgraded: false, game: serializeGame(existing) };
+}
+
 // Résout un chemin relatif vers un chemin absolu sous LIBRARY_DIR, en
 // re-vérifiant (en plus de isSafeRelativePath) que le résultat reste bien
 // dans LIBRARY_DIR. Renvoie null si le nom est invalide ou hors limites.
@@ -705,8 +724,12 @@ importRouter.post("/entry", async (req, res) => {
           : `Ce chemin fait double emploi avec un import existant (${overlap})`,
     });
   }
-  if (provider && externalId && isDuplicateExternal(provider, externalId)) {
-    return res.status(409).json({ error: "Ce jeu est déjà dans la bibliothèque" });
+  if (provider && externalId) {
+    const duplicate = resolveDuplicateExternal(provider, externalId, name);
+    if (duplicate) {
+      if (duplicate.upgraded) return res.status(200).json(duplicate.game);
+      return res.status(409).json({ error: "Ce jeu est déjà dans la bibliothèque" });
+    }
   }
 
   const finalTitle = (title && title.trim()) || cleanTitle(path.basename(name));
@@ -831,13 +854,18 @@ importRouter.post("/smart", async (req, res) => {
       continue;
     }
 
-    if (isDuplicateExternal(provider.id, match.externalId)) {
-      skipped.push({
-        name: entry.name,
-        reason: "déjà présent en bibliothèque",
-        query: entry.title,
-        matchedTitle: match.title,
-      });
+    const duplicate = resolveDuplicateExternal(provider.id, match.externalId, entry.name);
+    if (duplicate) {
+      if (duplicate.upgraded) {
+        created.push(duplicate.game);
+      } else {
+        skipped.push({
+          name: entry.name,
+          reason: "déjà présent en bibliothèque",
+          query: entry.title,
+          matchedTitle: match.title,
+        });
+      }
       continue;
     }
 
@@ -897,18 +925,35 @@ importRouter.post("/", async (req, res) => {
     // plus tard depuis la fiche.
     let match = null;
     let matchDiagnostic = null;
+    let duplicateUpgrade = null;
     if (providerImpl) {
       try {
         const results = await providerImpl.search(title);
         const candidate = findConfidentMatch(title, results);
-        if (candidate && !isDuplicateExternal(provider.id, candidate.externalId)) {
-          match = candidate;
+        if (candidate) {
+          const duplicate = resolveDuplicateExternal(provider.id, candidate.externalId, name);
+          if (duplicate?.upgraded) {
+            duplicateUpgrade = duplicate.game;
+          } else if (!duplicate) {
+            match = candidate;
+          } else {
+            matchDiagnostic = { query: title, candidates: topCandidates(results) };
+          }
         } else {
           matchDiagnostic = { query: title, candidates: topCandidates(results) };
         }
       } catch (err) {
         console.error(`Metadata search failed for "${title}": ${err.message}`);
       }
+    }
+
+    if (duplicateUpgrade) {
+      // Le jeu était déjà en wishlist : on vient de le faire passer en possédé
+      // (statut + chemin d'import) plutôt que de créer une deuxième fiche pour
+      // le même jeu.
+      imported.add(name);
+      created.push(duplicateUpgrade);
+      continue;
     }
 
     const result = insertImported.run({ title, import_path: name });
