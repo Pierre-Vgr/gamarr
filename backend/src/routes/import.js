@@ -7,6 +7,7 @@ import { LIBRARY_DIR } from "../config/paths.js";
 import { enrichGame } from "../services/enrich.js";
 import { getProvider, listProviders } from "../services/metadataProviders/index.js";
 import { guessFallbackPlatforms } from "../services/platformFallback.js";
+import { findConfidentMatch } from "../services/titleMatch.js";
 
 export const importRouter = Router();
 
@@ -534,47 +535,6 @@ function isSafeRelativePath(name) {
   if (typeof name !== "string" || name.length === 0 || path.isAbsolute(name)) return false;
   const segments = name.split("/");
   return segments.every((seg) => seg !== "" && seg !== "." && seg !== "..");
-}
-
-function normalizeBase(s) {
-  return (s || "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
-}
-
-function finishNormalize(s) {
-  return s.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
-}
-
-// Deux conventions différentes existent pour un titre possessif selon qui a
-// nommé le dossier : "Dragons Dogma" (apostrophe supprimée, le "s" reste,
-// très fréquent) ou "Marvel Spider-Man" au lieu de "Marvel's Spider-Man" (le
-// "'s" entier est supprimé). Comme on ne peut pas savoir laquelle s'applique,
-// les deux variantes sont calculées et un match est accepté si l'une
-// quelconque des variantes de la cible correspond à l'une quelconque des
-// variantes du résultat — toujours une égalité exacte sur le texte obtenu,
-// jamais une tolérance floue sur autre chose que cette apostrophe précise.
-function normalizeTitleVariants(s) {
-  const base = normalizeBase(s);
-  const apostropheOnly = finishNormalize(base.replace(/['’`]/g, ""));
-  const possessive = finishNormalize(base.replace(/['’`]s\b/gi, "").replace(/['’`]/g, ""));
-  return apostropheOnly === possessive ? [apostropheOnly] : [apostropheOnly, possessive];
-}
-
-// Un match n'est "fiable" que si le titre nettoyé du dossier/fichier correspond
-// exactement (une fois normalisé) au titre d'un résultat de recherche. Pas de
-// correspondance approximative : en cas de doute, on laisse l'entrée pour un
-// tri manuel plutôt que de risquer d'associer les mauvaises métadonnées.
-function findConfidentMatch(title, results) {
-  const targets = normalizeTitleVariants(title);
-  if (targets.every((t) => !t)) return null;
-  return (
-    results.find((r) => {
-      const candidates = normalizeTitleVariants(r.title);
-      return targets.some((t) => candidates.includes(t));
-    }) || null
-  );
 }
 
 // Pour le diagnostic affiché à l'utilisateur quand aucun match fiable n'est

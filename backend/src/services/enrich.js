@@ -3,6 +3,7 @@ import { serializeGame } from "../models/game.js";
 import { getProvider, listProviders } from "./metadataProviders/index.js";
 import { extractSteamAppId, getProtonTier } from "./protondb.js";
 import { guessFallbackPlatforms } from "./platformFallback.js";
+import { findConfidentMatch } from "./titleMatch.js";
 
 const updateMetadata = db.prepare(`
   UPDATE games SET
@@ -62,11 +63,20 @@ export async function enrichGame(game, { query, providerId, externalId } = {}) {
   // directement plutôt que de re-chercher par titre, qui pourrait matcher autre chose.
   let matchedExternalId = externalId;
   if (!matchedExternalId) {
-    const results = await providerImpl.search(query || game.title);
+    const searchTitle = query || game.title;
+    const results = await providerImpl.search(searchTitle);
     if (!results.length) {
       throw new Error("No match found");
     }
-    matchedExternalId = results[0].externalId;
+    // Comme à l'import : un titre rétro obscur peut ne matcher exactement aucun
+    // résultat RAWG/IGDB (pas de fiche, ou mal référencée) — prendre le premier résultat
+    // quand même lui ferait hériter de métadonnées sans rapport (plateforme "PC" d'un
+    // jeu totalement différent, par exemple), pire que ne pas actualiser du tout.
+    const match = findConfidentMatch(searchTitle, results);
+    if (!match) {
+      throw new Error("Aucune correspondance fiable trouvée pour ce titre");
+    }
+    matchedExternalId = match.externalId;
   }
 
   const details = await providerImpl.getDetails(matchedExternalId);
