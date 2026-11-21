@@ -8,7 +8,7 @@ export const gamesRouter = Router();
 const STATUSES = ["wishlist", "backlog", "playing", "completed", "abandoned"];
 
 gamesRouter.get("/", (req, res) => {
-  const { status, platform, search, source, genre, sort = "title" } = req.query;
+  const { status, platform, search, source, genre, store, sort = "title" } = req.query;
 
   let rows = db.prepare("SELECT * FROM games").all();
 
@@ -23,6 +23,9 @@ gamesRouter.get("/", (req, res) => {
   }
   if (genre) {
     rows = rows.filter((r) => JSON.parse(r.genres || "[]").includes(genre));
+  }
+  if (store) {
+    rows = rows.filter((r) => JSON.parse(r.stores || "[]").some((s) => s.slug === store));
   }
 
   const games = rows.map(serialize);
@@ -39,21 +42,28 @@ gamesRouter.get("/", (req, res) => {
 });
 
 gamesRouter.get("/facets", (req, res) => {
-  const rows = db.prepare("SELECT source, genres, platforms FROM games").all();
+  const rows = db.prepare("SELECT source, genres, platforms, stores FROM games").all();
   const sources = new Set();
   const genres = new Set();
   const platforms = new Set();
+  const stores = new Map(); // slug -> name, pour afficher un nom lisible (Steam, GOG...)
 
   for (const r of rows) {
     if (r.source) sources.add(r.source);
     for (const g of JSON.parse(r.genres || "[]")) genres.add(g);
     for (const p of JSON.parse(r.platforms || "[]")) platforms.add(p);
+    for (const s of JSON.parse(r.stores || "[]")) {
+      if (s.slug) stores.set(s.slug, s.name || s.slug);
+    }
   }
 
   res.json({
     sources: [...sources].sort(),
     genres: [...genres].sort(),
     platforms: [...platforms].sort(),
+    stores: [...stores.entries()]
+      .map(([slug, name]) => ({ slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
   });
 });
 

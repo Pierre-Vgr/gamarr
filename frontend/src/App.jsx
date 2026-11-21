@@ -27,8 +27,9 @@ export default function App() {
   const [source, setSource] = useState("");
   const [genre, setGenre] = useState("");
   const [platform, setPlatform] = useState("");
+  const [store, setStore] = useState("");
   const [sort, setSort] = useState("title");
-  const [facets, setFacets] = useState({ sources: [], genres: [], platforms: [] });
+  const [facets, setFacets] = useState({ sources: [], genres: [], platforms: [], stores: [] });
   const [modalGame, setModalGame] = useState(undefined); // undefined = closed, null = new, object = edit
   const [detailGame, setDetailGame] = useState(null);
   const [releaseSearchGame, setReleaseSearchGame] = useState(null);
@@ -63,7 +64,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const params = { search, status, sort, source, genre, platform };
+      const params = { search, status, sort, source, genre, platform, store };
       const data = await api.listGames(params);
       setGames(data);
       api.getGameFacets().then(setFacets).catch(() => {});
@@ -72,7 +73,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, source, genre, platform, sort, isGridView]);
+  }, [search, status, source, genre, platform, store, sort, isGridView]);
 
   useEffect(() => {
     load();
@@ -147,32 +148,32 @@ export default function App() {
             <button
               onClick={() => {
                 setView(item.id);
-                if (item.id === "library") setPlatform("");
+                if (item.id === "library") setStore("");
               }}
               className={`w-full text-left px-3 py-2 rounded font-medium ${
-                view === item.id && (item.id !== "library" || platform === "")
+                view === item.id && (item.id !== "library" || store === "")
                   ? "bg-indigo-600 text-white"
                   : "text-slate-400 hover:bg-slate-800 hover:text-white"
               }`}
             >
               {item.label}
             </button>
-            {item.id === "library" && facets.platforms.length > 0 && (
+            {item.id === "library" && facets.stores.length > 0 && (
               <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
-                {facets.platforms.map((p) => (
+                {facets.stores.map((s) => (
                   <button
-                    key={p}
+                    key={s.slug}
                     onClick={() => {
                       setView("library");
-                      setPlatform(p);
+                      setStore(s.slug);
                     }}
                     className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
-                      view === "library" && platform === p
+                      view === "library" && store === s.slug
                         ? "bg-indigo-600 text-white"
                         : "text-slate-500 hover:bg-slate-800 hover:text-white"
                     }`}
                   >
-                    {p}
+                    {s.name}
                   </button>
                 ))}
               </div>
@@ -181,7 +182,7 @@ export default function App() {
         ))}
       </aside>
 
-      <main className="flex-1 px-6 py-6 max-w-6xl">
+      <main className="flex-1 px-6 py-6 min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <h2 className="text-2xl font-bold">
             {NAV_ITEMS.find((i) => i.id === view)?.label}
