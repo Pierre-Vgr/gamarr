@@ -98,7 +98,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ STEAM_API_KEY: apiKey, STEAM_ID: steamId }),
     }),
+  testQbittorrent: (url, username, password) =>
+    request("/settings/test/qbittorrent", {
+      method: "POST",
+      body: JSON.stringify({ QBITTORRENT_URL: url, QBITTORRENT_USERNAME: username, QBITTORRENT_PASSWORD: password }),
+    }),
 
   steamStatus: () => request("/steam/status"),
   getSteamLibrary: () => request("/steam/library"),
+  qbittorrentStatus: () => request("/qbittorrent/status"),
 };

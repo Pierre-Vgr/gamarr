@@ -33,26 +33,26 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_games_title ON games(title);
 `);
 
-function addColumnIfMissing(name, definition) {
+function addColumnIfMissing(table, name, definition) {
   const exists = db
-    .prepare("PRAGMA table_info(games)")
+    .prepare(`PRAGMA table_info(${table})`)
     .all()
     .some((col) => col.name === name);
   if (!exists) {
-    db.exec(`ALTER TABLE games ADD COLUMN ${name} ${definition}`);
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
   }
 }
 
-addColumnIfMissing("import_path", "TEXT");
-addColumnIfMissing("stores", "TEXT NOT NULL DEFAULT '[]'");
-addColumnIfMissing("steam_app_id", "TEXT");
-addColumnIfMissing("proton_tier", "TEXT");
-addColumnIfMissing("metacritic_score", "INTEGER");
-addColumnIfMissing("community_rating", "INTEGER");
-addColumnIfMissing("ratings_count", "INTEGER");
+addColumnIfMissing("games", "import_path", "TEXT");
+addColumnIfMissing("games", "stores", "TEXT NOT NULL DEFAULT '[]'");
+addColumnIfMissing("games", "steam_app_id", "TEXT");
+addColumnIfMissing("games", "proton_tier", "TEXT");
+addColumnIfMissing("games", "metacritic_score", "INTEGER");
+addColumnIfMissing("games", "community_rating", "INTEGER");
+addColumnIfMissing("games", "ratings_count", "INTEGER");
 // Vu après une recherche Prowlarr explicite depuis la fiche sans aucun résultat :
 // 'unavailable', ou NULL si jamais vérifié / des résultats ont été trouvés.
-addColumnIfMissing("availability", "TEXT");
+addColumnIfMissing("games", "availability", "TEXT");
 
 db.exec(
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_games_import_path ON games(import_path) WHERE import_path IS NOT NULL"
@@ -76,3 +76,9 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at);
 `);
+
+// 'pending' (qBittorrent configuré, en attente de fin de téléchargement), 'linked'
+// (hardlink créé dans /library), 'failed' (voir hardlink_error), ou NULL pour une
+// ligne 'search', ou un grab fait sans qBittorrent configuré (rien à suivre).
+addColumnIfMissing("history", "hardlink_status", "TEXT");
+addColumnIfMissing("history", "hardlink_error", "TEXT");

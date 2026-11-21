@@ -11,6 +11,8 @@ import { prowlarrRouter } from "./routes/prowlarr.js";
 import { settingsRouter } from "./routes/settings.js";
 import { historyRouter } from "./routes/history.js";
 import { steamRouter } from "./routes/steam.js";
+import { qbittorrentRouter } from "./routes/qbittorrent.js";
+import { processPendingHardlinks } from "./services/hardlink.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -27,6 +29,7 @@ app.use("/api/prowlarr", prowlarrRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/history", historyRouter);
 app.use("/api/steam", steamRouter);
+app.use("/api/qbittorrent", qbittorrentRouter);
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
 // En dev, le frontend est servi par son propre serveur Vite (voir docker-compose.dev.yml) ;
@@ -41,3 +44,10 @@ if (fs.existsSync(STATIC_DIR)) {
 app.listen(PORT, () => {
   console.log(`Gamarr backend listening on port ${PORT}`);
 });
+
+// Hardlink des téléchargements qBittorrent terminés vers /library (voir
+// services/hardlink.js) — ne fait rien tant que qBittorrent n'est pas configuré.
+const HARDLINK_POLL_INTERVAL_MS = 60_000;
+setInterval(() => {
+  processPendingHardlinks().catch((err) => console.error(`Hardlink poll failed: ${err.message}`));
+}, HARDLINK_POLL_INTERVAL_MS);

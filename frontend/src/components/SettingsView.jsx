@@ -68,6 +68,15 @@ const SECTIONS = [
       { key: "STEAM_ID", label: "SteamID64", type: "text", placeholder: "76561198..." },
     ],
   },
+  {
+    id: "qbittorrent",
+    title: "qBittorrent",
+    fields: [
+      { key: "QBITTORRENT_URL", label: "URL du WebUI", type: "text", placeholder: "http://qbittorrent:8080" },
+      { key: "QBITTORRENT_USERNAME", label: "Utilisateur", type: "text" },
+      { key: "QBITTORRENT_PASSWORD", label: "Mot de passe", type: "password" },
+    ],
+  },
 ];
 
 export function SettingsView() {
@@ -75,6 +84,7 @@ export function SettingsView() {
   const [providers, setProviders] = useState([]);
   const [prowlarr, setProwlarr] = useState(null);
   const [steam, setSteam] = useState(null);
+  const [qbittorrent, setQbittorrent] = useState(null);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
@@ -85,10 +95,16 @@ export function SettingsView() {
 
   async function loadStatus() {
     try {
-      const [p, pr, st] = await Promise.all([api.listProviders(), api.prowlarrStatus(), api.steamStatus()]);
+      const [p, pr, st, qb] = await Promise.all([
+        api.listProviders(),
+        api.prowlarrStatus(),
+        api.steamStatus(),
+        api.qbittorrentStatus(),
+      ]);
       setProviders(p);
       setProwlarr(pr);
       setSteam(st);
+      setQbittorrent(qb);
     } catch (err) {
       setError(err.message);
     }
@@ -113,6 +129,12 @@ export function SettingsView() {
         result = await api.testIgdb(form.IGDB_CLIENT_ID, form.IGDB_CLIENT_SECRET);
       } else if (sectionId === "steam") {
         result = await api.testSteam(form.STEAM_API_KEY, form.STEAM_ID);
+      } else if (sectionId === "qbittorrent") {
+        result = await api.testQbittorrent(
+          form.QBITTORRENT_URL,
+          form.QBITTORRENT_USERNAME,
+          form.QBITTORRENT_PASSWORD
+        );
       } else {
         result = await api.testProwlarr(form.PROWLARR_URL, form.PROWLARR_API_KEY);
       }
@@ -189,6 +211,7 @@ export function SettingsView() {
         ))}
         {prowlarr && <StatusRow name="Prowlarr" configured={prowlarr.configured} />}
         {steam && <StatusRow name="Steam" configured={steam.configured} />}
+        {qbittorrent && <StatusRow name="qBittorrent" configured={qbittorrent.configured} />}
       </div>
 
       {!form ? (
@@ -237,6 +260,20 @@ export function SettingsView() {
                   </a>
                   . Le profil et le détail des jeux doivent être publics pour que la liste des jeux
                   possédés soit accessible (utilisée dans Découvrir pour signaler les doublons).
+                </p>
+              )}
+
+              {section.id === "qbittorrent" && (
+                <p className="text-xs text-slate-500">
+                  Une fois configuré, les téléchargements envoyés depuis Gamarr sont surveillés et
+                  automatiquement hardlinkés vers <code className="text-slate-400">/library</code> à la
+                  fin du téléchargement (statut visible dans l'onglet Historique).{" "}
+                  <code className="text-slate-400">/library</code> doit être monté en lecture-écriture
+                  (pas <code className="text-slate-400">:ro</code>). Dans qBittorrent, monte ce même
+                  dossier hôte et crée une catégorie dédiée dont le chemin de sauvegarde est{" "}
+                  <code className="text-slate-400">&lt;montage&gt;/.downloads</code> — surtout pas un
+                  volume Docker séparé, même pointant le même dossier : le hardlink échouerait quand
+                  même ("cross-device", visible dans l'Historique en cas d'erreur).
                 </p>
               )}
 

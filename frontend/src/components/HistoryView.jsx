@@ -8,6 +8,25 @@ function formatDate(s) {
   return new Date(`${s.replace(" ", "T")}Z`).toLocaleString();
 }
 
+const HARDLINK_LABELS = {
+  pending: { label: "Lien en attente", className: "bg-amber-900 text-amber-200" },
+  linked: { label: "Lié dans la bibliothèque", className: "bg-emerald-900 text-emerald-200" },
+  failed: { label: "Échec du lien", className: "bg-red-900 text-red-200" },
+};
+
+function HardlinkBadge({ status, error }) {
+  const info = HARDLINK_LABELS[status];
+  if (!info) return null;
+  return (
+    <span
+      title={error || undefined}
+      className={`px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 ${info.className}`}
+    >
+      {info.label}
+    </span>
+  );
+}
+
 export function HistoryView() {
   const [entries, setEntries] = useState(null);
   const [error, setError] = useState(null);
@@ -52,6 +71,8 @@ export function HistoryView() {
             )}
             {e.game_title && <p className="text-xs text-slate-500 truncate">pour {e.game_title}</p>}
           </div>
+
+          <HardlinkBadge status={e.hardlink_status} error={e.hardlink_error} />
 
           <span className="text-xs text-slate-500 shrink-0 whitespace-nowrap">{formatDate(e.created_at)}</span>
         </li>

@@ -4,6 +4,7 @@ import { testRawgKey } from "../services/metadataProviders/rawg.js";
 import { testIgdbCredentials } from "../services/metadataProviders/igdb.js";
 import { testProwlarrConnection } from "../services/prowlarr.js";
 import { testSteamConnection } from "../services/steam.js";
+import { testQbittorrentConnection } from "../services/qbittorrent.js";
 
 export const settingsRouter = Router();
 
@@ -18,6 +19,9 @@ const EDITABLE_FIELDS = [
   "PROWLARR_BLOCKED_TERMS",
   "STEAM_API_KEY",
   "STEAM_ID",
+  "QBITTORRENT_URL",
+  "QBITTORRENT_USERNAME",
+  "QBITTORRENT_PASSWORD",
 ];
 
 function withDefaults(secrets) {
@@ -88,4 +92,13 @@ settingsRouter.post("/test/steam", async (req, res) => {
   }
 
   res.json(await testSteamConnection(STEAM_API_KEY, STEAM_ID));
+});
+
+settingsRouter.post("/test/qbittorrent", async (req, res) => {
+  const { QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD } = req.body;
+  if (!QBITTORRENT_URL || !QBITTORRENT_USERNAME || !QBITTORRENT_PASSWORD) {
+    return res.json({ valid: false, message: "URL, utilisateur ou mot de passe manquant" });
+  }
+
+  res.json(await testQbittorrentConnection(QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD));
 });

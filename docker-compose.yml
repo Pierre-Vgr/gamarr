@@ -6,5 +6,14 @@ services:
       - "3000:3000"
     volumes:
       - ./config:/config
-      - ./library:/library:ro
+      # Lecture-écriture depuis l'ajout du hardlink qBittorrent -> bibliothèque (ce
+      # dernier doit pouvoir créer des fichiers ici). Remettre ":ro" désactive le
+      # hardlink automatique (échec silencieusement ignoré, pas de perte de données).
+      #
+      # Les téléchargements qBittorrent doivent atterrir dans le sous-dossier
+      # "./library/.downloads" de CE MÊME dossier hôte (pas un volume séparé : un
+      # hardlink échoue entre deux montages Docker distincts même s'ils pointent le
+      # même répertoire). Dans qBittorrent, monte ce dossier hôte et crée une catégorie
+      # dédiée dont le chemin de sauvegarde est exactement "<montage>/.downloads".
+      - ./library:/library
     restart: unless-stopped
