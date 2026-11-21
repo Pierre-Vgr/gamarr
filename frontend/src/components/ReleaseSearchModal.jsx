@@ -22,7 +22,7 @@ export function ReleaseSearchModal({ game, onClose, onUpdated }) {
     setLoading(true);
     setError(null);
     try {
-      const found = await api.searchReleases(query);
+      const found = await api.searchReleases(query, game);
       found.sort((a, b) => (b.seeders || 0) - (a.seeders || 0));
       setResults(found);
       // Trace la disponibilité pour le badge de statut (sorti mais aucune
@@ -43,7 +43,7 @@ export function ReleaseSearchModal({ game, onClose, onUpdated }) {
     setGrabbing(r.guid);
     setGrabErrors((prev) => ({ ...prev, [r.guid]: null }));
     try {
-      await api.grabRelease(r.guid, r.indexerId);
+      await api.grabRelease(r, game);
       setGrabbed((prev) => new Set(prev).add(r.guid));
     } catch (err) {
       setGrabErrors((prev) => ({ ...prev, [r.guid]: err.message }));

@@ -57,3 +57,22 @@ addColumnIfMissing("availability", "TEXT");
 db.exec(
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_games_import_path ON games(import_path) WHERE import_path IS NOT NULL"
 );
+
+// Journal des recherches Prowlarr effectuées et des releases envoyées au
+// client de téléchargement, consultable depuis l'onglet Historique.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL, -- 'search' | 'grab'
+    game_id INTEGER,
+    game_title TEXT,
+    query TEXT,
+    result_count INTEGER,
+    release_title TEXT,
+    indexer TEXT,
+    size_bytes INTEGER,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at);
+`);
