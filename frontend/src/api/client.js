@@ -35,8 +35,10 @@ export const api = {
     request(`/games/${id}/refresh-metadata`, { method: "POST", body: JSON.stringify(data) }),
 
   listProviders: () => request("/metadata/providers"),
-  searchMetadata: (q, provider = "rawg") =>
-    request(`/metadata/search?q=${encodeURIComponent(q)}&provider=${provider}`),
+  searchMetadata: (q, provider = "rawg", limit) =>
+    request(
+      `/metadata/search?q=${encodeURIComponent(q)}&provider=${provider}${limit ? `&limit=${limit}` : ""}`
+    ),
   getMetadataDetails: (provider, externalId) => request(`/metadata/${provider}/${externalId}`),
   getMedia: (provider, externalId) => request(`/metadata/${provider}/${externalId}/media`),
   browseCatalog: (provider = "rawg", page = 1, mode = "all-time") =>

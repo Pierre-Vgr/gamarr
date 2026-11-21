@@ -73,11 +73,11 @@ export const igdbProvider = {
   id: "igdb",
   isConfigured,
 
-  async search(queryText) {
+  async search(queryText, limit = 10) {
     if (!isConfigured()) throw new Error("IGDB is not configured");
     const safe = queryText.replace(/"/g, '\\"');
     const results = await query(
-      `search "${safe}"; fields name,cover.url,first_release_date,platforms.name,genres.name; limit 10;`
+      `search "${safe}"; fields name,cover.url,first_release_date,platforms.name,genres.name; limit ${Number(limit)};`
     );
     return results.map(mapGame);
   },

@@ -24,11 +24,11 @@ export const rawgProvider = {
     return Boolean(getSecret("RAWG_API_KEY"));
   },
 
-  async search(query) {
+  async search(query, limit = 10) {
     const url = new URL(`${BASE_URL}/games`);
     url.searchParams.set("key", apiKey());
     url.searchParams.set("search", query);
-    url.searchParams.set("page_size", "10");
+    url.searchParams.set("page_size", String(Math.min(limit, 40)));
 
     const res = await fetch(url);
     if (!res.ok) throw new Error(`RAWG search failed: ${res.status}`);
@@ -71,7 +71,7 @@ export const rawgProvider = {
   async browse(page = 1, mode = "all-time") {
     const url = new URL(`${BASE_URL}/games`);
     url.searchParams.set("key", apiKey());
-    url.searchParams.set("page_size", "20");
+    url.searchParams.set("page_size", "40"); // maximum accepté par RAWG
     url.searchParams.set("page", String(page));
     url.searchParams.set("platforms", "4"); // RAWG platform id 4 = PC
 

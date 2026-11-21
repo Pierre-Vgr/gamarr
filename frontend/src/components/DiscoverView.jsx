@@ -68,7 +68,7 @@ export function DiscoverView() {
     setLoading(true);
     setError(null);
     try {
-      const found = await api.searchMetadata(query, provider);
+      const found = await api.searchMetadata(query, provider, 40);
       setResults(found);
     } catch (err) {
       setError(err.message);

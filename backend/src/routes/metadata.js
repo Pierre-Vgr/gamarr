@@ -8,11 +8,11 @@ metadataRouter.get("/providers", (req, res) => {
 });
 
 metadataRouter.get("/search", async (req, res) => {
-  const { q, provider = "rawg" } = req.query;
+  const { q, provider = "rawg", limit } = req.query;
   if (!q) return res.status(400).json({ error: "q is required" });
 
   try {
-    const results = await getProvider(provider).search(q);
+    const results = await getProvider(provider).search(q, limit ? Number(limit) : undefined);
     res.json(results);
   } catch (err) {
     res.status(502).json({ error: err.message });
