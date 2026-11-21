@@ -11,6 +11,7 @@ import { STATUS_OPTIONS } from "./components/StatusBadge.jsx";
 
 const NAV_ITEMS = [
   { id: "library", label: "Bibliothèque" },
+  { id: "wishlist", label: "Wishlist" },
   { id: "import", label: "Importer" },
   { id: "discover", label: "Découvrir" },
   { id: "settings", label: "Paramètres" },
@@ -38,7 +39,7 @@ export default function App() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  const isGridView = view === "library";
+  const isGridView = view === "library" || view === "wishlist";
 
   useEffect(() => {
     api
@@ -65,7 +66,8 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const params = { search, status, sort, source, genre, platform, store, category };
+      const effectiveStatus = view === "wishlist" ? "wishlist" : status;
+      const params = { search, status: effectiveStatus, sort, source, genre, platform, store, category };
       const data = await api.listGames(params);
       setGames(data);
       api.getGameFacets().then(setFacets).catch(() => {});
@@ -74,7 +76,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, source, genre, platform, store, category, sort, isGridView]);
+  }, [search, status, source, genre, platform, store, category, sort, view, isGridView]);
 
   useEffect(() => {
     load();
@@ -233,18 +235,20 @@ export default function App() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <select
-                className="bg-slate-800 rounded px-3 py-2"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="">Tous les statuts</option>
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+              {view === "library" && (
+                <select
+                  className="bg-slate-800 rounded px-3 py-2"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="">Tous les statuts</option>
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              )}
               <select
                 className="bg-slate-800 rounded px-3 py-2"
                 value={source}
@@ -344,7 +348,9 @@ export default function App() {
             {loading ? (
               <p className="text-slate-400">Chargement...</p>
             ) : games.length === 0 ? (
-              <p className="text-slate-400">Aucun jeu dans la bibliothèque pour le moment.</p>
+              <p className="text-slate-400">
+                {view === "wishlist" ? "Aucun jeu en wishlist." : "Aucun jeu dans la bibliothèque pour le moment."}
+              </p>
             ) : (
               <div className="grid grid-cols-[repeat(auto-fill,170px)] gap-4">
                 {/* Taille de vignette fixe : plus d'espace = plus de colonnes, pas des
@@ -366,6 +372,7 @@ export default function App() {
         {modalGame !== undefined && (
           <GameFormModal
             game={modalGame}
+            defaultStatus={view === "wishlist" ? "wishlist" : "backlog"}
             onClose={() => setModalGame(undefined)}
             onSaved={() => {
               setModalGame(undefined);
