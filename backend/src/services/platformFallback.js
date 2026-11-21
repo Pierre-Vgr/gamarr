@@ -1,14 +1,5 @@
-// Déduit une plateforme à partir du chemin lui-même (ex: un dossier ROMs organisé
-// par émulateur/console, du type "Roms/Emulateurs/.../Nintendo - Super Nintendo
-// Entertainment System/Jeu.zip") : RAWG/IGDB ne couvrent pas toujours ces
-// consoles anciennes, ou le nom de fichier d'une ROM (tags région/révision,
-// titre romanisé...) ne matche aucune fiche, laissant "platforms" vide. Chaque
-// segment du chemin est testé ; le premier qui correspond l'emporte. Uniquement
-// un filet de sécurité quand aucune métadonnée n'a déjà renseigné de plateforme.
-//
-// Partagé entre l'import (routes/import.js) et l'actualisation des métadonnées
-// (services/enrich.js), en dernier recours quand le provider n'a lui-même renvoyé
-// aucune plateforme (ex: ROM dont le match RAWG/IGDB est incertain ou absent).
+// Reconnaît le nom d'une plateforme dans un segment de chemin (ex: le dossier
+// "Game Boy Color" sous "Roms/") et le normalise vers un libellé commun.
 const PLATFORM_PATH_HINTS = [
   { re: /\bnes\b/i, platform: "NES" },
   { re: /\bsnes\b|super\s*nintendo/i, platform: "SNES" },
@@ -59,12 +50,9 @@ const PLATFORM_PATH_HINTS = [
   { re: /apple\s*ii\b/i, platform: "Apple II" },
 ];
 
-export function guessPlatformFromPath(relPath) {
-  for (const segment of relPath.split("/")) {
-    const hint = PLATFORM_PATH_HINTS.find((h) => h.re.test(segment));
-    if (hint) return hint.platform;
-  }
-  return null;
+function normalizePlatformName(segment) {
+  const hint = PLATFORM_PATH_HINTS.find((h) => h.re.test(segment));
+  return hint ? hint.platform : segment;
 }
 
 // Un projet de "recompilation statique" (Zelda64Recomp, sm64coopdx...) compile le jeu
@@ -75,12 +63,28 @@ export function isRecompPort(relPath, title) {
   return /recomp/i.test(relPath || "") || /recomp/i.test(title || "");
 }
 
-// Si "platforms" est vide, tente de déduire la bonne valeur du chemin plutôt que de
-// laisser "Plateforme inconnue" dans l'interface. Retourne null si aucun indice trouvé
-// (appelant : ne pas toucher aux plateformes existantes dans ce cas).
-export function guessFallbackPlatforms(relPath, title) {
+// Un jeu rangé sous un dossier "Roms/<Plateforme>" (ex: "Roms/Nintendo Switch/Jeu") est
+// toujours considéré comme une Rom de CETTE plateforme — le rangement choisi par
+// l'utilisateur prime sur la métadonnée. Un même titre existe souvent sur plusieurs
+// plateformes (une version Game Boy Color et une version N64 du même jeu, par exemple)
+// et une recherche par titre ne peut pas lever cette ambiguïté ; la place du fichier le
+// peut. Renvoie null si le chemin n'a pas de segment "Roms" suivi d'un sous-dossier.
+export function detectRomsFolderPlatform(relPath) {
   if (!relPath) return null;
+  const segments = relPath.split("/");
+  const romsIndex = segments.findIndex((s) => s.toLowerCase() === "roms");
+  if (romsIndex === -1 || romsIndex + 1 >= segments.length) return null;
+  return normalizePlatformName(segments[romsIndex + 1]);
+}
+
+// Détermine la plateforme définitive d'un jeu importé. Priorité au rangement sur
+// disque : "Roms/<plateforme>" ou un nom de recompilation l'emportent toujours, quoi
+// que dise la métadonnée. En dehors de ces deux cas, la métadonnée (RAWG/IGDB) reste
+// seule autorité — c'est elle qui décide si un jeu est PC, macOS, Linux, ou même une
+// console exclusive non rangée sous "Roms".
+export function resolvePlatforms(relPath, title, metadataPlatforms) {
   if (isRecompPort(relPath, title)) return ["PC"];
-  const guess = guessPlatformFromPath(relPath);
-  return guess ? [guess] : null;
+  const romsPlatform = detectRomsFolderPlatform(relPath);
+  if (romsPlatform) return [romsPlatform];
+  return metadataPlatforms || [];
 }

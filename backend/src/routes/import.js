@@ -3,10 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { db } from "../db/index.js";
 import { serializeGame } from "../models/game.js";
-import { LIBRARY_DIR } from "../config/paths.js";
+import { getLibraryDir } from "../config/libraryPaths.js";
 import { enrichGame } from "../services/enrich.js";
 import { getProvider, listProviders } from "../services/metadataProviders/index.js";
-import { guessFallbackPlatforms } from "../services/platformFallback.js";
+import { resolvePlatforms } from "../services/platformFallback.js";
 import { findConfidentMatch } from "../services/titleMatch.js";
 
 export const importRouter = Router();
@@ -451,11 +451,11 @@ async function scanDir(absDir, relPrefix, imported, depth, entries, providerImpl
 importRouter.get("/scan", async (req, res) => {
   const relPath = typeof req.query.path === "string" ? req.query.path : "";
 
-  if (!fs.existsSync(LIBRARY_DIR)) {
-    return res.json({ libraryDir: LIBRARY_DIR, exists: false, entries: [] });
+  if (!fs.existsSync(getLibraryDir())) {
+    return res.json({ libraryDir: getLibraryDir(), exists: false, entries: [] });
   }
 
-  const absPath = relPath === "" ? path.resolve(LIBRARY_DIR) : resolveLibraryPath(relPath);
+  const absPath = relPath === "" ? path.resolve(getLibraryDir()) : resolveLibraryPath(relPath);
   if (!absPath || !fs.existsSync(absPath) || !fs.statSync(absPath).isDirectory()) {
     return res.status(400).json({ error: "invalid path" });
   }
@@ -469,7 +469,7 @@ importRouter.get("/scan", async (req, res) => {
   await scanDir(absPath, relPath, imported, 0, entries, null, null);
   entries.sort((a, b) => a.title.localeCompare(b.title));
 
-  res.json({ libraryDir: LIBRARY_DIR, exists: true, entries });
+  res.json({ libraryDir: getLibraryDir(), exists: true, entries });
 });
 
 // Liste le contenu d'un seul niveau de la ludothèque (pas de récursion), pour
@@ -480,11 +480,11 @@ importRouter.get("/scan", async (req, res) => {
 importRouter.get("/browse", (req, res) => {
   const relPath = typeof req.query.path === "string" ? req.query.path : "";
 
-  if (!fs.existsSync(LIBRARY_DIR)) {
-    return res.json({ libraryDir: LIBRARY_DIR, exists: false, path: "", parent: null, entries: [] });
+  if (!fs.existsSync(getLibraryDir())) {
+    return res.json({ libraryDir: getLibraryDir(), exists: false, path: "", parent: null, entries: [] });
   }
 
-  const absPath = relPath === "" ? path.resolve(LIBRARY_DIR) : resolveLibraryPath(relPath);
+  const absPath = relPath === "" ? path.resolve(getLibraryDir()) : resolveLibraryPath(relPath);
   if (!absPath || !fs.existsSync(absPath) || !fs.statSync(absPath).isDirectory()) {
     return res.status(400).json({ error: "invalid path" });
   }
@@ -525,7 +525,7 @@ importRouter.get("/browse", (req, res) => {
 
   const parent = relPath ? relPath.split("/").slice(0, -1).join("/") : null;
 
-  res.json({ libraryDir: LIBRARY_DIR, exists: true, path: relPath, parent, entries });
+  res.json({ libraryDir: getLibraryDir(), exists: true, path: relPath, parent, entries });
 });
 
 // Accepte un chemin relatif éventuellement composé de plusieurs segments
@@ -563,20 +563,23 @@ function resolveDuplicateExternal(source, externalId, importPath) {
   if (!existing) return null;
 
   if (existing.status === "wishlist") {
+    // Le jeu a pu être wishlisté avec une plateforme purement issue de la métadonnée ;
+    // l'import révèle maintenant son vrai rangement sur disque (Roms/<plateforme>...).
+    const resolvedPlatforms = resolvePlatforms(importPath, existing.title, JSON.parse(existing.platforms || "[]"));
     db.prepare(
-      "UPDATE games SET status = 'backlog', import_path = ?, availability = NULL, updated_at = datetime('now') WHERE id = ?"
-    ).run(importPath, existing.id);
+      "UPDATE games SET status = 'backlog', import_path = ?, platforms = ?, availability = NULL, updated_at = datetime('now') WHERE id = ?"
+    ).run(importPath, JSON.stringify(resolvedPlatforms), existing.id);
     return { upgraded: true, game: serializeGame(db.prepare("SELECT * FROM games WHERE id = ?").get(existing.id)) };
   }
   return { upgraded: false, game: serializeGame(existing) };
 }
 
-// Résout un chemin relatif vers un chemin absolu sous LIBRARY_DIR, en
+// Résout un chemin relatif vers un chemin absolu sous la bibliothèque, en
 // re-vérifiant (en plus de isSafeRelativePath) que le résultat reste bien
-// dans LIBRARY_DIR. Renvoie null si le nom est invalide ou hors limites.
+// à l'intérieur. Renvoie null si le nom est invalide ou hors limites.
 function resolveLibraryPath(name) {
   if (!isSafeRelativePath(name)) return null;
-  const libraryRoot = path.resolve(LIBRARY_DIR);
+  const libraryRoot = path.resolve(getLibraryDir());
   const absPath = path.resolve(libraryRoot, name);
   if (absPath !== libraryRoot && !absPath.startsWith(libraryRoot + path.sep)) return null;
   return absPath;
@@ -587,16 +590,15 @@ const insertImported = db.prepare(`
   VALUES (@title, '[]', 'backlog', '[]', 'import', @import_path)
 `);
 
-// Filet de sécurité appliqué après l'éventuel enrichissement : si le jeu
-// importé n'a toujours aucune plateforme connue, tente de la déduire du
-// chemin plutôt que de laisser "Plateforme inconnue" dans l'interface.
-// (logique partagée avec l'actualisation des métadonnées, voir services/platformFallback.js)
+// Appliqué après l'éventuel enrichissement métadonnées : le rangement sur disque
+// (Roms/<plateforme>, recomp) prime toujours sur ce que la métadonnée a renseigné —
+// voir services/platformFallback.js. Logique partagée avec l'actualisation des
+// métadonnées (services/enrich.js).
 function applyPlatformFallback(game, relPath) {
-  if (game.platforms && game.platforms.length > 0) return game;
-  const guess = guessFallbackPlatforms(relPath, game.title);
-  if (!guess) return game;
-  db.prepare("UPDATE games SET platforms = ? WHERE id = ?").run(JSON.stringify(guess), game.id);
-  return { ...game, platforms: guess };
+  const resolved = resolvePlatforms(relPath, game.title, game.platforms);
+  if (JSON.stringify(resolved) === JSON.stringify(game.platforms || [])) return game;
+  db.prepare("UPDATE games SET platforms = ? WHERE id = ?").run(JSON.stringify(resolved), game.id);
+  return { ...game, platforms: resolved };
 }
 
 // Import d'une entrée unique avec contrôle fin : titre et correspondance de
@@ -605,7 +607,7 @@ function applyPlatformFallback(game, relPath) {
 importRouter.post("/entry", async (req, res) => {
   const { name, title, provider, externalId } = req.body || {};
 
-  if (!fs.existsSync(LIBRARY_DIR)) {
+  if (!fs.existsSync(getLibraryDir())) {
     return res.status(400).json({ error: "libraryDir is not accessible" });
   }
 
@@ -657,11 +659,11 @@ importRouter.post("/entry", async (req, res) => {
 importRouter.post("/preview", async (req, res) => {
   const relPath = typeof req.query.path === "string" ? req.query.path : "";
 
-  if (!fs.existsSync(LIBRARY_DIR)) {
+  if (!fs.existsSync(getLibraryDir())) {
     return res.status(400).json({ error: "libraryDir is not accessible" });
   }
 
-  const absPath = relPath === "" ? path.resolve(LIBRARY_DIR) : resolveLibraryPath(relPath);
+  const absPath = relPath === "" ? path.resolve(getLibraryDir()) : resolveLibraryPath(relPath);
   if (!absPath || !fs.existsSync(absPath) || !fs.statSync(absPath).isDirectory()) {
     return res.status(400).json({ error: "invalid path" });
   }
@@ -717,7 +719,7 @@ importRouter.post("/preview", async (req, res) => {
 // de côté pour un tri manuel, pour éviter le travail fastidieux sur une grosse
 // ludothèque tout en restant fiable.
 importRouter.post("/smart", async (req, res) => {
-  if (!fs.existsSync(LIBRARY_DIR)) {
+  if (!fs.existsSync(getLibraryDir())) {
     return res.status(400).json({ error: "libraryDir is not accessible" });
   }
 
@@ -730,7 +732,7 @@ importRouter.post("/smart", async (req, res) => {
 
   const imported = alreadyImported();
   const scanned = [];
-  await scanDir(LIBRARY_DIR, "", imported, 0, scanned, providerImpl, limiter);
+  await scanDir(getLibraryDir(), "", imported, 0, scanned, providerImpl, limiter);
 
   const created = [];
   const skipped = [];
@@ -790,7 +792,7 @@ importRouter.post("/", async (req, res) => {
     return res.status(400).json({ error: "names must be a non-empty array" });
   }
 
-  if (!fs.existsSync(LIBRARY_DIR)) {
+  if (!fs.existsSync(getLibraryDir())) {
     return res.status(400).json({ error: "libraryDir is not accessible" });
   }
 

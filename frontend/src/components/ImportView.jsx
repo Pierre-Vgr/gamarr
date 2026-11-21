@@ -369,8 +369,8 @@ export function ImportView({ onImported }) {
             <p className="text-red-400 text-sm">{browseError}</p>
           ) : !browse?.exists ? (
             <p className="text-amber-400 text-sm">
-              Dossier introuvable. Vérifie que le dossier de ta bibliothèque est bien présent sous
-              /data/library dans docker-compose.yml.
+              Dossier introuvable ({browse?.libraryDir}). Vérifie le montage du volume /data et le
+              chemin configuré dans Paramètres → Stockage.
             </p>
           ) : browse.entries.length === 0 ? (
             <p className="text-slate-400">Ce dossier est vide.</p>

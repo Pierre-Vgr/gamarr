@@ -21,12 +21,30 @@ function TestResultBadge({ result }) {
   if (result === "loading") return <span className="text-xs text-slate-400">Test en cours...</span>;
   return (
     <span className={`text-xs ${result.valid ? "text-emerald-400" : "text-red-400"}`}>
-      {result.valid ? "✓ Valide" : `✗ ${result.message || "Invalide"}`}
+      {result.valid ? `✓ ${result.message || "Valide"}` : `✗ ${result.message || "Invalide"}`}
     </span>
   );
 }
 
 const SECTIONS = [
+  {
+    id: "stockage",
+    title: "Stockage",
+    fields: [
+      {
+        key: "LIBRARY_SUBPATH",
+        label: "Dossier de la bibliothèque (relatif au montage /data)",
+        type: "text",
+        placeholder: "media/games",
+      },
+      {
+        key: "DOWNLOADS_SUBPATH",
+        label: "Dossier de téléchargement qBittorrent (relatif au montage /data)",
+        type: "text",
+        placeholder: "torrents/games",
+      },
+    ],
+  },
   {
     id: "rawg",
     title: "RAWG",
@@ -123,7 +141,9 @@ export function SettingsView() {
     setTestResults((prev) => ({ ...prev, [sectionId]: "loading" }));
     try {
       let result;
-      if (sectionId === "rawg") {
+      if (sectionId === "stockage") {
+        result = await api.testStorage(form.LIBRARY_SUBPATH, form.DOWNLOADS_SUBPATH);
+      } else if (sectionId === "rawg") {
         result = await api.testRawg(form.RAWG_API_KEY);
       } else if (sectionId === "igdb") {
         result = await api.testIgdb(form.IGDB_CLIENT_ID, form.IGDB_CLIENT_SECRET);
@@ -247,6 +267,20 @@ export function SettingsView() {
                 </div>
               ))}
 
+              {section.id === "stockage" && (
+                <p className="text-xs text-slate-500">
+                  Ces chemins sont relatifs au volume <code className="text-slate-400">/data</code>{" "}
+                  monté dans docker-compose.yml (lui ne se change pas sans redémarrer le conteneur).
+                  Dans le dossier de la bibliothèque, tout jeu rangé sous un sous-dossier{" "}
+                  <code className="text-slate-400">Roms/&lt;plateforme&gt;</code> (ex:{" "}
+                  <code className="text-slate-400">Roms/Switch/...</code>) est reconnu comme une Rom
+                  de cette plateforme quoi qu'en dise la fiche RAWG/IGDB — utile pour un titre qui
+                  existe sur plusieurs plateformes (une version Game Boy Color et une version N64 du
+                  même jeu, par exemple). Tout le reste est traité comme un jeu PC, selon la
+                  métadonnée.
+                </p>
+              )}
+
               {section.id === "steam" && (
                 <p className="text-xs text-slate-500">
                   Clé API sur{" "}
@@ -268,13 +302,13 @@ export function SettingsView() {
                   Une fois configuré, les téléchargements envoyés depuis Gamarr sont surveillés et
                   automatiquement hardlinkés vers la bibliothèque à la fin du téléchargement (statut
                   visible dans l'onglet Historique). Le montage{" "}
-                  <code className="text-slate-400">/data</code> (lecture-écriture) contient{" "}
-                  <code className="text-slate-400">/data/library</code> et{" "}
-                  <code className="text-slate-400">/data/downloads</code> : dans qBittorrent, monte ce
-                  même dossier hôte et crée une catégorie dédiée dont le chemin de sauvegarde est{" "}
-                  <code className="text-slate-400">/data/downloads</code> — surtout pas un volume
-                  Docker séparé, même pointant le même dossier : le hardlink échouerait quand même
-                  ("cross-device", visible dans l'Historique en cas d'erreur).
+                  <code className="text-slate-400">/data</code> (lecture-écriture, voir section
+                  "Stockage" ci-dessus pour les sous-dossiers) contient la bibliothèque et le dossier
+                  de téléchargement : dans qBittorrent, monte ce même dossier hôte et crée une
+                  catégorie dédiée dont le chemin de sauvegarde correspond exactement au dossier de
+                  téléchargement configuré ci-dessus — surtout pas un volume Docker séparé, même
+                  pointant le même dossier : le hardlink échouerait quand même ("cross-device",
+                  visible dans l'Historique en cas d'erreur).
                 </p>
               )}
 

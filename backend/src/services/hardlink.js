@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { db } from "../db/index.js";
-import { LIBRARY_DIR, DOWNLOADS_DIR } from "../config/paths.js";
+import { getLibraryDir, getDownloadsDir } from "../config/libraryPaths.js";
 import { isConfigured, listTorrents } from "./qbittorrent.js";
 import { findConfidentMatch } from "./titleMatch.js";
 
@@ -12,25 +12,27 @@ function sanitizeFolderName(name) {
 
 // qBittorrent renvoie content_path en absolu depuis SON propre point de vue : ça ne
 // pointe vers un fichier valide ici que si qBittorrent a sauvegardé ce téléchargement
-// dans DOWNLOADS_DIR (voir config/paths.js — même dossier hôte que LIBRARY_DIR, requis
-// pour que le hardlink ne traverse pas deux montages Docker distincts). Un chemin hors
-// de DOWNLOADS_DIR indique presque sûrement une catégorie/chemin de sauvegarde
-// qBittorrent mal configuré : remonté comme échec explicite plutôt que deviné.
+// dans le dossier de téléchargement configuré (voir config/libraryPaths.js — même
+// montage Docker que la bibliothèque, requis pour que le hardlink ne traverse pas deux
+// montages distincts). Un chemin hors de ce dossier indique presque sûrement une
+// catégorie/chemin de sauvegarde qBittorrent mal configuré : remonté comme échec
+// explicite plutôt que deviné.
 function resolveContentPath(torrent) {
   const resolved = torrent.contentPath || (torrent.savePath && path.join(torrent.savePath, torrent.name));
-  if (resolved && !path.resolve(resolved).startsWith(path.resolve(DOWNLOADS_DIR) + path.sep)) {
+  const downloadsDir = getDownloadsDir();
+  if (resolved && !path.resolve(resolved).startsWith(path.resolve(downloadsDir) + path.sep)) {
     throw new Error(
-      `qBittorrent a sauvegardé "${torrent.name}" dans "${resolved}", hors de ${DOWNLOADS_DIR} ` +
+      `qBittorrent a sauvegardé "${torrent.name}" dans "${resolved}", hors de ${downloadsDir} ` +
         "— configure une catégorie qBittorrent dédiée dont le chemin de sauvegarde est exactement " +
-        `${DOWNLOADS_DIR} (sur le même volume que la bibliothèque Gamarr).`
+        `${downloadsDir} (sur le même volume que la bibliothèque Gamarr).`
     );
   }
   return resolved;
 }
 
 // Un hardlink ne porte que sur un fichier (impossible de hardlinker un dossier sous
-// Unix) : on recrée donc l'arborescence du téléchargement dans LIBRARY_DIR et on lie
-// chaque fichier individuellement. Même espace disque, le client de téléchargement
+// Unix) : on recrée donc l'arborescence du téléchargement dans la bibliothèque et on
+// lie chaque fichier individuellement. Même espace disque, le client de téléchargement
 // peut continuer à seeder depuis le dossier de téléchargement sans rien dupliquer.
 function hardlinkRecursive(srcDir, destDir) {
   fs.mkdirSync(destDir, { recursive: true });
@@ -66,7 +68,7 @@ function linkOne(row, torrent) {
   }
 
   const folderName = sanitizeFolderName(row.game_title || torrent.name);
-  const destPath = path.join(LIBRARY_DIR, folderName);
+  const destPath = path.join(getLibraryDir(), folderName);
   if (fs.existsSync(destPath)) {
     throw new Error(`"${folderName}" existe déjà dans la bibliothèque, lien ignoré.`);
   }

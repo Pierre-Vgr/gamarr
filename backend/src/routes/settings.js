@@ -1,10 +1,14 @@
 import { Router } from "express";
+import fs from "node:fs";
+import path from "node:path";
 import { getAllSecrets, updateSecrets, hasSecretsFile } from "../config/secrets.js";
 import { testRawgKey } from "../services/metadataProviders/rawg.js";
 import { testIgdbCredentials } from "../services/metadataProviders/igdb.js";
 import { testProwlarrConnection } from "../services/prowlarr.js";
 import { testSteamConnection } from "../services/steam.js";
 import { testQbittorrentConnection } from "../services/qbittorrent.js";
+import { DATA_DIR } from "../config/paths.js";
+import { DEFAULT_LIBRARY_SUBPATH, DEFAULT_DOWNLOADS_SUBPATH } from "../config/libraryPaths.js";
 
 export const settingsRouter = Router();
 
@@ -22,7 +26,14 @@ const EDITABLE_FIELDS = [
   "QBITTORRENT_URL",
   "QBITTORRENT_USERNAME",
   "QBITTORRENT_PASSWORD",
+  "LIBRARY_SUBPATH",
+  "DOWNLOADS_SUBPATH",
 ];
+
+const DEFAULTS = {
+  LIBRARY_SUBPATH: DEFAULT_LIBRARY_SUBPATH,
+  DOWNLOADS_SUBPATH: DEFAULT_DOWNLOADS_SUBPATH,
+};
 
 function withDefaults(secrets) {
   const result = { firstRun: !hasSecretsFile() };
@@ -30,7 +41,7 @@ function withDefaults(secrets) {
     if (field === "PROWLARR_INDEXER_IDS") {
       result[field] = Array.isArray(secrets[field]) ? secrets[field] : [];
     } else {
-      result[field] = secrets[field] || "";
+      result[field] = secrets[field] || DEFAULTS[field] || "";
     }
   }
   return result;
@@ -101,4 +112,24 @@ settingsRouter.post("/test/qbittorrent", async (req, res) => {
   }
 
   res.json(await testQbittorrentConnection(QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD));
+});
+
+settingsRouter.post("/test/storage", (req, res) => {
+  const { LIBRARY_SUBPATH, DOWNLOADS_SUBPATH } = req.body;
+  const libraryDir = path.join(DATA_DIR, LIBRARY_SUBPATH || DEFAULT_LIBRARY_SUBPATH);
+  const downloadsDir = path.join(DATA_DIR, DOWNLOADS_SUBPATH || DEFAULT_DOWNLOADS_SUBPATH);
+
+  if (!fs.existsSync(libraryDir)) {
+    return res.json({
+      valid: false,
+      message: `${libraryDir} introuvable — vérifie le montage du volume ${DATA_DIR} et ce sous-chemin`,
+    });
+  }
+  if (!fs.existsSync(downloadsDir)) {
+    return res.json({
+      valid: true,
+      message: `Bibliothèque OK. ${downloadsDir} n'existe pas encore (sera créé par qBittorrent au premier téléchargement, ou crée-le toi-même).`,
+    });
+  }
+  res.json({ valid: true });
 });

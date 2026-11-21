@@ -21,11 +21,11 @@ web à Playnite. Mono-utilisateur, sans authentification, pensé pour un usage s
 L'app ne se configure qu'avec deux volumes, aucune variable d'environnement n'est requise.
 
 ```bash
-mkdir -p config data/library data/downloads
+mkdir -p config data/media/games data/torrents/games
 cp secrets.json.example config/secrets.json
 # renseigner RAWG_API_KEY dans config/secrets.json (clé gratuite sur https://rawg.io/apidocs)
-
-# édite docker-compose.yml pour faire pointer ./data/library vers ton dossier de jeux non installés
+# place tes jeux non installés dans data/media/games (ou configure un autre chemin,
+# relatif à /data, dans Paramètres -> Stockage une fois l'app lancée)
 docker compose up --build
 # ou : podman compose up --build
 ```
@@ -39,11 +39,37 @@ Deux volumes, et rien d'autre :
 | Volume | Monté sur | Contenu |
 |---|---|---|
 | `./config` | `/config` | Base SQLite (`gamarr.db`) et `secrets.json` (clés API). |
-| `./data` | `/data` (lecture-écriture) | `data/library` : tes jeux non installés, scanné par l'import. `data/downloads` : dépôt des téléchargements qBittorrent avant hardlink vers `data/library` (voir plus bas). |
+| `./data` | `/data` (lecture-écriture) | Bibliothèque et dépôt des téléchargements qBittorrent avant hardlink (voir plus bas), chacun dans un sous-dossier configurable. |
 
-`/data` est en lecture-écriture (nécessaire au hardlink qBittorrent → bibliothèque).
-`library` et `downloads` doivent rester sous ce même montage `/data` : un hardlink échoue
-entre deux volumes Docker distincts, même s'ils pointent le même dossier hôte.
+`/data` est en lecture-écriture (nécessaire au hardlink qBittorrent → bibliothèque). Le
+sous-dossier exact de la bibliothèque et des téléchargements, lui, se configure dans
+Paramètres → Stockage (par défaut `media/games` et `torrents/games`) — mais les deux
+doivent toujours rester sous ce même montage `/data` : un hardlink échoue entre deux
+volumes Docker distincts, même s'ils pointent le même dossier hôte.
+
+### Organisation de la bibliothèque et détection des Roms
+
+Dans le dossier de la bibliothèque, un jeu rangé sous un sous-dossier
+`Roms/<plateforme>` (ex: `Roms/Switch/Jeu`, `Roms/Game Boy Color/Jeu`) est reconnu comme
+une Rom de cette plateforme, quoi qu'en dise la métadonnée RAWG/IGDB — utile pour un
+titre qui existe sur plusieurs plateformes (ex: une version Game Boy Color et une
+version N64 du même jeu), où une recherche par titre seule ne peut pas lever
+l'ambiguïté. Tout ce qui est en dehors de `Roms/` est traité comme un jeu PC, selon la
+métadonnée.
+
+```
+data/
+  media/games/
+    Cyberpunk 2077 [GOG]/
+    Hollow Knight [SteamRip]/
+    Roms/
+      Switch/
+        The Legend of Zelda - Tears of the Kingdom/
+      Game Boy Color/
+        Pokemon Crystal/
+  torrents/games/
+    (dépôt qBittorrent avant hardlink)
+```
 
 Édite directement les chemins hôtes dans `docker-compose.yml` (par défaut `./config` et
 `./data`, relatifs au dépôt) pour les faire pointer où tu veux.
@@ -62,7 +88,7 @@ automatique de métadonnées est désactivée.
 
 ### Import depuis un dossier
 
-Le bouton "Importer" scanne le contenu de `/data/library` (un niveau, pas récursif) et affiche
+Le bouton "Importer" scanne le contenu du dossier de la bibliothèque (un niveau, pas récursif) et affiche
 les dossiers/fichiers pas encore importés. Sélectionne ceux à ajouter : une entrée est créée
 par élément, avec un titre déduit du nom (extension et tags entre crochets/parenthèses
 retirés). Tu peux ensuite enrichir chaque entrée via la recherche de métadonnées, comme pour
@@ -84,8 +110,10 @@ http://localhost:5173 (hot-reload Vite, proxy `/api` vers le backend). C'est le 
 ## Architecture
 
 - `backend/` — API Express + SQLite (better-sqlite3), sert aussi le build du frontend en
-  production (mono-container). Les chemins `/config`, `/data/library` et `/data/downloads`
-  sont fixes dans le code (`backend/src/config/paths.js`) : seuls les volumes Docker varient.
+  production (mono-container). `/config` et le point de montage `/data` sont fixes dans
+  le code (`backend/src/config/paths.js`) ; les sous-chemins de la bibliothèque et des
+  téléchargements sous `/data` sont configurables (`backend/src/config/libraryPaths.js`,
+  réglages `LIBRARY_SUBPATH`/`DOWNLOADS_SUBPATH` dans Paramètres → Stockage).
 - `frontend/` — React + Vite + Tailwind.
 - Un seul `Dockerfile` multi-stage : build du frontend puis image finale avec le backend
   qui sert l'API (`/api/*`) et les fichiers statiques du frontend.

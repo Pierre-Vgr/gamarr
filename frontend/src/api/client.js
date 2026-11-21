@@ -103,6 +103,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ QBITTORRENT_URL: url, QBITTORRENT_USERNAME: username, QBITTORRENT_PASSWORD: password }),
     }),
+  testStorage: (librarySubpath, downloadsSubpath) =>
+    request("/settings/test/storage", {
+      method: "POST",
+      body: JSON.stringify({ LIBRARY_SUBPATH: librarySubpath, DOWNLOADS_SUBPATH: downloadsSubpath }),
+    }),
 
   steamStatus: () => request("/steam/status"),
   getSteamLibrary: () => request("/steam/library"),

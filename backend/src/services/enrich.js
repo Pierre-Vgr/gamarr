@@ -2,7 +2,7 @@ import { db } from "../db/index.js";
 import { serializeGame } from "../models/game.js";
 import { getProvider, listProviders } from "./metadataProviders/index.js";
 import { extractSteamAppId, getProtonTier } from "./protondb.js";
-import { guessFallbackPlatforms } from "./platformFallback.js";
+import { resolvePlatforms } from "./platformFallback.js";
 import { findConfidentMatch } from "./titleMatch.js";
 
 const updateMetadata = db.prepare(`
@@ -86,16 +86,12 @@ export async function enrichGame(game, { query, providerId, externalId } = {}) {
     game
   );
 
-  // Reste vide seulement quand le provider lui-même n'a aucune info de plateforme
-  // (ex: ROM dont le match RAWG/IGDB est incertain) : filterPcPlatforms renvoie déjà
-  // les vraies plateformes console quand le jeu n'a pas de version PC (ex: Bloodborne).
-  // Filet de dernier recours ici, sinon actualiser les métadonnées d'une Rom non
-  // matchée effacerait la plateforme déduite de son chemin à l'import.
-  let platforms = details.platforms || [];
-  if (platforms.length === 0 && game.import_path) {
-    const guess = guessFallbackPlatforms(game.import_path, game.title);
-    if (guess) platforms = guess;
-  }
+  // Le rangement sur disque (Roms/<plateforme>, recomp) prime toujours sur la
+  // métadonnée pour un jeu importé — sinon actualiser les métadonnées d'une Rom
+  // écraserait sa plateforme par celle (possiblement fausse, pour un titre qui existe
+  // sur plusieurs plateformes) renvoyée par le provider. Pour un jeu sans import_path
+  // (ajout manuel, Découvrir...), la métadonnée reste seule autorité.
+  const platforms = resolvePlatforms(game.import_path, game.title, details.platforms || []);
 
   updateMetadata.run({
     id: game.id,
