@@ -179,7 +179,7 @@ export function DiscoverView() {
       ) : results.length === 0 ? (
         <p className="text-slate-400">Aucun résultat.</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-[repeat(auto-fill,170px)] gap-4">
           {results.map((r) => (
             <div key={r.externalId} className="bg-slate-900 rounded-lg overflow-hidden shadow-lg">
               <button
