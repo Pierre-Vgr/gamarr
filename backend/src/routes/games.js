@@ -39,18 +39,21 @@ gamesRouter.get("/", (req, res) => {
 });
 
 gamesRouter.get("/facets", (req, res) => {
-  const rows = db.prepare("SELECT source, genres FROM games").all();
+  const rows = db.prepare("SELECT source, genres, platforms FROM games").all();
   const sources = new Set();
   const genres = new Set();
+  const platforms = new Set();
 
   for (const r of rows) {
     if (r.source) sources.add(r.source);
     for (const g of JSON.parse(r.genres || "[]")) genres.add(g);
+    for (const p of JSON.parse(r.platforms || "[]")) platforms.add(p);
   }
 
   res.json({
     sources: [...sources].sort(),
     genres: [...genres].sort(),
+    platforms: [...platforms].sort(),
   });
 });
 

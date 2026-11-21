@@ -26,8 +26,9 @@ export default function App() {
   const [status, setStatus] = useState("");
   const [source, setSource] = useState("");
   const [genre, setGenre] = useState("");
+  const [platform, setPlatform] = useState("");
   const [sort, setSort] = useState("title");
-  const [facets, setFacets] = useState({ sources: [], genres: [] });
+  const [facets, setFacets] = useState({ sources: [], genres: [], platforms: [] });
   const [modalGame, setModalGame] = useState(undefined); // undefined = closed, null = new, object = edit
   const [detailGame, setDetailGame] = useState(null);
   const [releaseSearchGame, setReleaseSearchGame] = useState(null);
@@ -62,7 +63,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const params = { search, status, sort, source, genre };
+      const params = { search, status, sort, source, genre, platform };
       const data = await api.listGames(params);
       setGames(data);
       api.getGameFacets().then(setFacets).catch(() => {});
@@ -71,7 +72,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [search, status, source, genre, sort, isGridView]);
+  }, [search, status, source, genre, platform, sort, isGridView]);
 
   useEffect(() => {
     load();
@@ -217,6 +218,18 @@ export default function App() {
                 {facets.genres.map((g) => (
                   <option key={g} value={g}>
                     {g}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="bg-slate-800 rounded px-3 py-2"
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+              >
+                <option value="">Toutes les plateformes</option>
+                {facets.platforms.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
                   </option>
                 ))}
               </select>
