@@ -141,7 +141,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex">
-      <aside className="w-56 shrink-0 bg-slate-900 border-r border-slate-800 p-4 flex flex-col gap-1">
+      <aside className="w-56 shrink-0 bg-slate-900 border-r border-slate-800 p-4 flex flex-col gap-1 sticky top-0 h-screen overflow-y-auto">
         <h1 className="text-xl font-bold mb-4 px-2">🎮 Gamarr</h1>
         {NAV_ITEMS.map((item) => (
           <div key={item.id}>

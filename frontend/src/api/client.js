@@ -43,6 +43,8 @@ export const api = {
     request(`/metadata/browse?provider=${provider}&page=${page}&mode=${mode}`),
 
   scanImport: (path = "") => request(`/import/scan${path ? `?path=${encodeURIComponent(path)}` : ""}`),
+  previewImport: (path = "") =>
+    request(`/import/preview${path ? `?path=${encodeURIComponent(path)}` : ""}`, { method: "POST" }),
   browseImport: (path = "") => request(`/import/browse?path=${encodeURIComponent(path)}`),
   importGames: (names) => request("/import", { method: "POST", body: JSON.stringify({ names }) }),
   smartImport: () => request("/import/smart", { method: "POST" }),

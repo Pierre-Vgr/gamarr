@@ -531,6 +531,66 @@ importRouter.post("/entry", async (req, res) => {
   res.status(201).json(game);
 });
 
+// Aperçu avant import : même matching que l'import intelligent (recherche +
+// match exact) sur toute la ludothèque (ou un sous-dossier via ?path=), mais
+// sans rien écrire en base. Permet de revoir/corriger le titre et la
+// correspondance proposés avant de confirmer réellement l'import, un par un
+// via POST /entry.
+importRouter.post("/preview", async (req, res) => {
+  const relPath = typeof req.query.path === "string" ? req.query.path : "";
+
+  if (!fs.existsSync(LIBRARY_DIR)) {
+    return res.status(400).json({ error: "libraryDir is not accessible" });
+  }
+
+  const absPath = relPath === "" ? path.resolve(LIBRARY_DIR) : resolveLibraryPath(relPath);
+  if (!absPath || !fs.existsSync(absPath) || !fs.statSync(absPath).isDirectory()) {
+    return res.status(400).json({ error: "invalid path" });
+  }
+
+  const provider = listProviders().find((p) => p.configured);
+  const providerImpl = provider ? getProvider(provider.id) : null;
+
+  const imported = alreadyImported();
+  const scanned = [];
+  scanDir(absPath, relPath, imported, 0, scanned);
+
+  const items = [];
+  for (const entry of scanned) {
+    const item = {
+      name: entry.name,
+      title: entry.title,
+      provider: provider?.id || null,
+      match: null,
+      query: entry.title,
+      candidates: [],
+    };
+
+    if (providerImpl) {
+      try {
+        const results = await providerImpl.search(entry.title);
+        const match = findConfidentMatch(entry.title, results);
+        if (match && !isDuplicateExternal(provider.id, match.externalId)) {
+          item.match = {
+            externalId: match.externalId,
+            title: match.title,
+            coverUrl: match.coverUrl || null,
+            releaseDate: match.releaseDate || null,
+          };
+        } else {
+          item.candidates = topCandidates(results, 5);
+        }
+      } catch (err) {
+        item.error = err.message;
+      }
+    }
+
+    items.push(item);
+  }
+
+  res.json({ items });
+});
+
 // Import "intelligent" : scanne la ludothèque et n'ajoute automatiquement que les
 // entrées sans ambiguïté — un match de titre exact chez le provider de métadonnées
 // configuré, et pas déjà présentes en bibliothèque. Tout le reste (titre ambigu,

@@ -3,8 +3,10 @@ import { api } from "../api/client.js";
 import { formatSize } from "../utils/format.js";
 import { ImportEntryReview } from "./ImportEntryReview.jsx";
 import { ImportDiagnostics } from "./ImportDiagnostics.jsx";
+import { ImportPreview } from "./ImportPreview.jsx";
 
 export function ImportView({ onImported }) {
+  const [previewMode, setPreviewMode] = useState(false);
   const [scan, setScan] = useState(null);
   const [scanLoading, setScanLoading] = useState(true);
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -227,6 +229,17 @@ export function ImportView({ onImported }) {
     }
   }
 
+  if (previewMode) {
+    return (
+      <ImportPreview
+        onClose={() => setPreviewMode(false)}
+        onImported={async () => {
+          await refreshAll();
+        }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
       {!scanLoading && scan?.exists && scan.entries.length > 0 && (
@@ -252,6 +265,13 @@ export function ImportView({ onImported }) {
                 className="px-4 py-2 rounded bg-emerald-700 hover:bg-emerald-600 font-medium disabled:opacity-50"
               >
                 {smartRunning ? "Analyse en cours..." : "Import intelligent"}
+              </button>
+              <button
+                onClick={() => setPreviewMode(true)}
+                disabled={busy}
+                className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600 font-medium disabled:opacity-50"
+              >
+                Prévisualiser avant import
               </button>
             </div>
           </div>
