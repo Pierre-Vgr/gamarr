@@ -676,38 +676,45 @@ importRouter.post("/preview", async (req, res) => {
   const scanned = [];
   await scanDir(absPath, relPath, imported, 0, scanned, providerImpl, limiter);
 
-  const items = [];
-  for (const entry of scanned) {
-    const item = {
-      name: entry.name,
-      title: entry.title,
-      provider: provider?.id || null,
-      match: null,
-      query: entry.title,
-      candidates: [],
-    };
+  // Aucune écriture en base ici (juste une lecture pour isDuplicateExternal) : chaque
+  // entrée peut être traitée en parallèle (borné par le même limiteur que le scan),
+  // contrairement à /smart et au bulk import qui doivent rester séquentiels sur la
+  // partie écriture.
+  const items = await Promise.all(
+    scanned.map((entry) =>
+      limiter(async () => {
+        const item = {
+          name: entry.name,
+          title: entry.title,
+          provider: provider?.id || null,
+          match: null,
+          query: entry.title,
+          candidates: [],
+        };
 
-    if (providerImpl) {
-      try {
-        const results = await providerImpl.search(entry.title);
-        const match = findConfidentMatch(entry.title, results);
-        if (match && !isDuplicateExternal(provider.id, match.externalId)) {
-          item.match = {
-            externalId: match.externalId,
-            title: match.title,
-            coverUrl: match.coverUrl || null,
-            releaseDate: match.releaseDate || null,
-          };
-        } else {
-          item.candidates = topCandidates(results, 5);
+        if (providerImpl) {
+          try {
+            const results = await providerImpl.search(entry.title);
+            const match = findConfidentMatch(entry.title, results);
+            if (match && !isDuplicateExternal(provider.id, match.externalId)) {
+              item.match = {
+                externalId: match.externalId,
+                title: match.title,
+                coverUrl: match.coverUrl || null,
+                releaseDate: match.releaseDate || null,
+              };
+            } else {
+              item.candidates = topCandidates(results, 5);
+            }
+          } catch (err) {
+            item.error = err.message;
+          }
         }
-      } catch (err) {
-        item.error = err.message;
-      }
-    }
 
-    items.push(item);
-  }
+        return item;
+      })
+    )
+  );
 
   res.json({ items });
 });
@@ -734,15 +741,25 @@ importRouter.post("/smart", async (req, res) => {
   const scanned = [];
   await scanDir(getLibraryDir(), "", imported, 0, scanned, providerImpl, limiter);
 
+  // Les recherches sont bornées en parallèle (même limiteur que le scan) avant le
+  // traitement séquentiel ci-dessous : c'est la recherche réseau qui domine le temps
+  // total sur une grosse ludothèque, pas les écritures en base qui, elles, doivent
+  // rester séquentielles (vérification de doublon par external_id).
+  const searchResults = await Promise.all(
+    scanned.map((entry) =>
+      limiter(() => providerImpl.search(entry.title)).then(
+        (results) => ({ entry, results, error: null }),
+        (error) => ({ entry, results: null, error })
+      )
+    )
+  );
+
   const created = [];
   const skipped = [];
 
-  for (const entry of scanned) {
-    let results;
-    try {
-      results = await providerImpl.search(entry.title);
-    } catch (err) {
-      skipped.push({ name: entry.name, reason: `recherche échouée: ${err.message}`, query: entry.title });
+  for (const { entry, results, error } of searchResults) {
+    if (error) {
+      skipped.push({ name: entry.name, reason: `recherche échouée: ${error.message}`, query: entry.title });
       continue;
     }
 
@@ -799,10 +816,18 @@ importRouter.post("/", async (req, res) => {
   const imported = alreadyImported();
   const provider = listProviders().find((p) => p.configured);
   const providerImpl = provider ? getProvider(provider.id) : null;
+  const limiter = createLimiter(SCAN_SEARCH_CONCURRENCY);
 
   const created = [];
   const skipped = [];
 
+  // Première passe (synchrone, pas de réseau) : valide chaque nom et filtre les
+  // chevauchements, dans l'ordre de la requête — un nom qui chevauche un autre nom de
+  // CE MÊME lot doit encore être détecté, donc "imported" est mis à jour ici, avant
+  // toute recherche réseau. Rien n'échoue plus loin pour une entrée qui passe ce filtre
+  // (elle finit toujours en "created", via une mise à jour ou un nouvel import), donc
+  // avancer "imported" à ce stade plutôt qu'après écriture ne change rien au résultat.
+  const toProcess = [];
   for (const name of names) {
     const absPath = resolveLibraryPath(name);
     if (!absPath) {
@@ -818,20 +843,38 @@ importRouter.post("/", async (req, res) => {
       skipped.push({ name, reason: overlap });
       continue;
     }
+    imported.add(name);
+    toProcess.push({ name, title: cleanTitle(path.basename(name)) });
+  }
 
-    const title = cleanTitle(path.basename(name));
+  // Recherches bornées en parallèle (même limiteur que le scan) : c'est la recherche
+  // réseau qui domine le temps total sur un gros lot, pas les écritures qui suivent.
+  const searchResults = providerImpl
+    ? await Promise.all(
+        toProcess.map(({ name, title }) =>
+          limiter(() => providerImpl.search(title)).then(
+            (results) => ({ name, title, results, error: null }),
+            (error) => ({ name, title, results: null, error })
+          )
+        )
+      )
+    : toProcess.map(({ name, title }) => ({ name, title, results: null, error: null }));
 
-    // Même prudence que l'import intelligent : seule une correspondance de
-    // titre exacte (et pas déjà utilisée par un autre jeu) est attachée.
-    // L'entrée est importée dans tous les cas — c'est l'intérêt de "Tout
-    // importer" — mais sans métadonnées erronées en cas de doute, modifiable
-    // plus tard depuis la fiche.
+  // Deuxième passe (séquentielle) : traite les écritures en base à partir des
+  // résultats déjà récupérés. Même prudence que l'import intelligent : seule une
+  // correspondance de titre exacte (et pas déjà utilisée par un autre jeu) est
+  // attachée. L'entrée est importée dans tous les cas — c'est l'intérêt de "Tout
+  // importer" — mais sans métadonnées erronées en cas de doute, modifiable plus tard
+  // depuis la fiche.
+  for (const { name, title, results, error } of searchResults) {
     let match = null;
     let matchDiagnostic = null;
     let duplicateUpgrade = null;
+
     if (providerImpl) {
-      try {
-        const results = await providerImpl.search(title);
+      if (error) {
+        console.error(`Metadata search failed for "${title}": ${error.message}`);
+      } else {
         const candidate = findConfidentMatch(title, results);
         if (candidate) {
           const duplicate = resolveDuplicateExternal(provider.id, candidate.externalId, name);
@@ -845,8 +888,6 @@ importRouter.post("/", async (req, res) => {
         } else {
           matchDiagnostic = { query: title, candidates: topCandidates(results) };
         }
-      } catch (err) {
-        console.error(`Metadata search failed for "${title}": ${err.message}`);
       }
     }
 
@@ -854,7 +895,6 @@ importRouter.post("/", async (req, res) => {
       // Le jeu était déjà en wishlist : on vient de le faire passer en possédé
       // (statut + chemin d'import) plutôt que de créer une deuxième fiche pour
       // le même jeu.
-      imported.add(name);
       created.push(duplicateUpgrade);
       continue;
     }
@@ -872,7 +912,6 @@ importRouter.post("/", async (req, res) => {
       game.matchDiagnostic = matchDiagnostic;
     }
     game = applyPlatformFallback(game, name);
-    imported.add(name);
     created.push(game);
   }
 

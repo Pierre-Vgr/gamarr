@@ -1,5 +1,6 @@
 import { getSecret } from "../../config/secrets.js";
 import { filterPcPlatforms } from "./platforms.js";
+import { withCache, CACHE_TTL } from "../metadataCache.js";
 
 const TOKEN_URL = "https://id.twitch.tv/oauth2/token";
 const API_URL = "https://api.igdb.com/v4/games";
@@ -75,45 +76,51 @@ export const igdbProvider = {
 
   async search(queryText, limit = 10) {
     if (!isConfigured()) throw new Error("IGDB is not configured");
-    const safe = queryText.replace(/"/g, '\\"');
-    const results = await query(
-      `search "${safe}"; fields name,cover.url,first_release_date,platforms.name,genres.name; limit ${Number(limit)};`
-    );
-    return results.map(mapGame);
+    return withCache("igdb", "search", `${queryText}::${limit}`, CACHE_TTL.SEARCH, async () => {
+      const safe = queryText.replace(/"/g, '\\"');
+      const results = await query(
+        `search "${safe}"; fields name,cover.url,first_release_date,platforms.name,genres.name; limit ${Number(limit)};`
+      );
+      return results.map(mapGame);
+    });
   },
 
   async getDetails(externalId) {
     if (!isConfigured()) throw new Error("IGDB is not configured");
-    const results = await query(
-      `fields name,summary,cover.url,first_release_date,platforms.name,genres.name,aggregated_rating,rating,rating_count; where id = ${Number(
-        externalId
-      )};`
-    );
-    if (!results.length) throw new Error("Game not found on IGDB");
-    return mapGame(results[0]);
+    return withCache("igdb", "details", String(externalId), CACHE_TTL.DETAILS, async () => {
+      const results = await query(
+        `fields name,summary,cover.url,first_release_date,platforms.name,genres.name,aggregated_rating,rating,rating_count; where id = ${Number(
+          externalId
+        )};`
+      );
+      if (!results.length) throw new Error("Game not found on IGDB");
+      return mapGame(results[0]);
+    });
   },
 
   async getMedia(externalId) {
     if (!isConfigured()) throw new Error("IGDB is not configured");
-    const results = await query(
-      `fields screenshots.url,videos.video_id,videos.name; where id = ${Number(externalId)};`
-    );
-    if (!results.length) return { screenshots: [], trailers: [] };
-    const game = results[0];
+    return withCache("igdb", "media", String(externalId), CACHE_TTL.MEDIA, async () => {
+      const results = await query(
+        `fields screenshots.url,videos.video_id,videos.name; where id = ${Number(externalId)};`
+      );
+      if (!results.length) return { screenshots: [], trailers: [] };
+      const game = results[0];
 
-    return {
-      screenshots: (game.screenshots || [])
-        .map((s) => (s.url ? `https:${s.url.replace("t_thumb", "t_screenshot_big")}` : null))
-        .filter(Boolean),
-      trailers: (game.videos || [])
-        .filter((v) => v.video_id)
-        .map((v) => ({
-          name: v.name,
-          thumbnail: `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
-          videoUrl: `https://www.youtube.com/embed/${v.video_id}`,
-          youtube: true,
-        })),
-    };
+      return {
+        screenshots: (game.screenshots || [])
+          .map((s) => (s.url ? `https:${s.url.replace("t_thumb", "t_screenshot_big")}` : null))
+          .filter(Boolean),
+        trailers: (game.videos || [])
+          .filter((v) => v.video_id)
+          .map((v) => ({
+            name: v.name,
+            thumbnail: `https://img.youtube.com/vi/${v.video_id}/hqdefault.jpg`,
+            videoUrl: `https://www.youtube.com/embed/${v.video_id}`,
+            youtube: true,
+          })),
+      };
+    });
   },
 };
 

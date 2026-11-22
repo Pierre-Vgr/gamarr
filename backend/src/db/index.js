@@ -82,3 +82,18 @@ db.exec(`
 // ligne 'search', ou un grab fait sans qBittorrent configuré (rien à suivre).
 addColumnIfMissing("history", "hardlink_status", "TEXT");
 addColumnIfMissing("history", "hardlink_error", "TEXT");
+
+// Cache des réponses RAWG/IGDB (recherche, détails, stores, media, catalogue parcouru)
+// pour limiter la consommation du quota de ces API — voir services/metadataCache.js.
+// "kind" distingue le type d'appel (search/details/stores/media/browse) pour un même
+// provider ; "key" encode les paramètres de l'appel (externalId, requête...).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS metadata_cache (
+    provider TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (provider, kind, key)
+  );
+`);

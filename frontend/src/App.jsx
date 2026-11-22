@@ -32,6 +32,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState("");
   const [source, setSource] = useState("");
   const [genre, setGenre] = useState("");
@@ -51,6 +52,13 @@ export default function App() {
   const [expandedMenus, setExpandedMenus] = useState(new Set(["library", "roms", "wishlist"]));
 
   const isGridView = view === "library" || view === "wishlist" || view === "roms";
+
+  // Laisse l'utilisateur finir de taper avant de relancer une requête réseau : sans
+  // ça, chaque frappe dans le champ de recherche déclenchait un aller-retour complet.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
   useEffect(() => {
     api
@@ -81,20 +89,40 @@ export default function App() {
       // "games" exclut les Roms de la Bibliothèque : elles ont désormais leur propre
       // section, inutile qu'elles réapparaissent aussi ici.
       const effectiveCategory = view === "roms" ? "roms" : view === "library" ? "games" : "";
-      const params = { search, status: effectiveStatus, sort, source, genre, platform, store, category: effectiveCategory };
+      const params = {
+        search: debouncedSearch,
+        status: effectiveStatus,
+        sort,
+        source,
+        genre,
+        platform,
+        store,
+        category: effectiveCategory,
+      };
       const data = await api.listGames(params);
       setGames(data);
-      api.getGameFacets().then(setFacets).catch(() => {});
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [search, status, source, genre, platform, store, sort, view, isGridView]);
+  }, [debouncedSearch, status, source, genre, platform, store, sort, view, isGridView]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Les facettes (stores, plateformes, genres...) ne peuvent changer qu'en touchant à
+  // la bibliothèque elle-même (ajout/suppression/édition/import), jamais en filtrant —
+  // inutile de les recharger à chaque changement de filtre/tri comme le faisait load().
+  const refreshFacets = useCallback(() => {
+    api.getGameFacets().then(setFacets).catch(() => {});
+  }, []);
+
+  async function reload() {
+    await load();
+    refreshFacets();
+  }
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -103,11 +131,12 @@ export default function App() {
   async function handleDelete(game) {
     if (!confirm(`Supprimer "${game.title}" de la bibliothèque ?`)) return;
     await api.deleteGame(game.id);
-    load();
+    reload();
   }
 
   function handleRefreshed(updatedGame) {
     setGames((prev) => prev.map((g) => (g.id === updatedGame.id ? updatedGame : g)));
+    refreshFacets();
   }
 
   function toggleMenu(id) {
@@ -149,7 +178,7 @@ export default function App() {
     try {
       await api.bulkUpdateStatus(Array.from(selectedIds), newStatus);
       setSelectedIds(new Set());
-      await load();
+      await reload();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -164,7 +193,7 @@ export default function App() {
     try {
       const { updated, failed } = await api.bulkRefreshMetadata(Array.from(selectedIds));
       setSelectedIds(new Set());
-      await load();
+      await reload();
       if (failed.length > 0) {
         setError(
           `${updated} jeu(x) actualisé(s), ${failed.length} échec(s) : ${failed
@@ -187,7 +216,7 @@ export default function App() {
     try {
       await api.bulkDeleteGames(Array.from(selectedIds));
       setSelectedIds(new Set());
-      await load();
+      await reload();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -323,7 +352,7 @@ export default function App() {
           )}
         </div>
 
-        {view === "import" && <ImportView onImported={load} />}
+        {view === "import" && <ImportView onImported={reload} />}
         {view === "discover" && <DiscoverView />}
         {view === "history" && <HistoryView />}
         {view === "settings" && <SettingsView />}
@@ -491,7 +520,7 @@ export default function App() {
             onClose={() => setModalGame(undefined)}
             onSaved={() => {
               setModalGame(undefined);
-              load();
+              reload();
             }}
           />
         )}
