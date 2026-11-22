@@ -18,6 +18,17 @@ function apiKey() {
   return key;
 }
 
+// RAWG renvoie souvent 401 pour autre chose qu'une clé invalide (ex: quota mensuel de
+// l'offre gratuite épuisé, avec {"error": "The monthly API limit reached"}) — sans lire
+// le corps de la réponse, ces cas s'affichaient à tort comme "clé invalide" alors que la
+// clé est bonne. On relaie donc toujours le message réel de RAWG quand il y en a un.
+async function assertOk(res, label) {
+  if (res.ok) return;
+  const body = await res.json().catch(() => null);
+  const detail = body?.error ? `: ${body.error}` : "";
+  throw new Error(`${label} failed (${res.status})${detail}`);
+}
+
 export const rawgProvider = {
   id: "rawg",
   isConfigured() {
@@ -31,7 +42,7 @@ export const rawgProvider = {
     url.searchParams.set("page_size", String(Math.min(limit, 40)));
 
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`RAWG search failed: ${res.status}`);
+    await assertOk(res, "RAWG search");
     const data = await res.json();
 
     return (data.results || []).map((game) => ({
@@ -50,7 +61,7 @@ export const rawgProvider = {
     url.searchParams.set("key", apiKey());
 
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`RAWG details failed: ${res.status}`);
+    await assertOk(res, "RAWG details");
     const game = await res.json();
 
     return {
@@ -96,7 +107,7 @@ export const rawgProvider = {
     }
 
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`RAWG browse failed: ${res.status}`);
+    await assertOk(res, "RAWG browse");
     const data = await res.json();
 
     return (data.results || []).map((game) => ({
@@ -117,8 +128,8 @@ export const rawgProvider = {
     moviesUrl.searchParams.set("key", apiKey());
 
     const [screenshotsRes, moviesRes] = await Promise.all([fetch(screenshotsUrl), fetch(moviesUrl)]);
-    if (!screenshotsRes.ok) throw new Error(`RAWG screenshots failed: ${screenshotsRes.status}`);
-    if (!moviesRes.ok) throw new Error(`RAWG movies failed: ${moviesRes.status}`);
+    await assertOk(screenshotsRes, "RAWG screenshots");
+    await assertOk(moviesRes, "RAWG movies");
 
     const screenshotsData = await screenshotsRes.json();
     const moviesData = await moviesRes.json();
@@ -158,7 +169,7 @@ async function fetchStoreCatalog() {
   url.searchParams.set("key", apiKey());
 
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`RAWG store catalog failed: ${res.status}`);
+  await assertOk(res, "RAWG store catalog");
   const data = await res.json();
 
   storeCatalogCache = new Map(
@@ -172,7 +183,7 @@ async function fetchGameStores(externalId) {
   url.searchParams.set("key", apiKey());
 
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`RAWG stores failed: ${res.status}`);
+  await assertOk(res, "RAWG stores");
   const data = await res.json();
   return data.results || [];
 }
@@ -188,6 +199,9 @@ export async function testRawgKey(key) {
 
   const res = await fetch(url);
   if (res.ok) return { valid: true };
+
+  const body = await res.json().catch(() => null);
+  if (body?.error) return { valid: false, message: body.error };
   if (res.status === 401 || res.status === 403) return { valid: false, message: "Clé invalide" };
   return { valid: false, message: `Erreur RAWG (${res.status})` };
 }
