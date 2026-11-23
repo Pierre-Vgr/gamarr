@@ -62,7 +62,7 @@ export function ImportPreview({ onClose, onImported }) {
     if (!item.searchQuery.trim()) return;
     updateItem(index, { searching: true });
     try {
-      const results = await api.searchMetadata(item.searchQuery, item.provider || "rawg");
+      const results = await api.searchMetadata(item.searchQuery, item.provider || "igdb");
       updateItem(index, { searchResults: results, searching: false });
     } catch (err) {
       updateItem(index, { searching: false, searchResults: [] });

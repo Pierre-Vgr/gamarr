@@ -4,6 +4,10 @@ import { withCache, CACHE_TTL } from "../metadataCache.js";
 
 const TOKEN_URL = "https://id.twitch.tv/oauth2/token";
 const API_URL = "https://api.igdb.com/v4/games";
+// Identifiant IGDB de la plateforme "PC (Microsoft Windows)" (stable dans leur schéma,
+// vérifié en conditions réelles : `where platforms = (6)` ne renvoie que des jeux PC).
+const IGDB_PC_PLATFORM_ID = 6;
+const BROWSE_PAGE_SIZE = 40;
 
 let cachedToken = null; // { value, expiresAt, clientId }
 
@@ -95,6 +99,34 @@ export const igdbProvider = {
       );
       if (!results.length) throw new Error("Game not found on IGDB");
       return mapGame(results[0]);
+    });
+  },
+
+  async browse(page = 1, mode = "all-time") {
+    if (!isConfigured()) throw new Error("IGDB is not configured");
+    return withCache("igdb", "browse", `${page}::${mode}`, CACHE_TTL.BROWSE, async () => {
+      const offset = (Math.max(page, 1) - 1) * BROWSE_PAGE_SIZE;
+      const now = Math.floor(Date.now() / 1000);
+      const daysAgo = (n) => now - n * 86400;
+
+      let where = `platforms = (${IGDB_PC_PLATFORM_ID})`;
+      let sort = "total_rating_count desc";
+
+      if (mode === "new") {
+        // Sorties récentes, triées par date — même logique que le mode "new" de RAWG
+        // (pur tri chronologique, pas de filtre de qualité).
+        where += ` & first_release_date >= ${daysAgo(60)} & first_release_date <= ${now}`;
+        sort = "first_release_date desc";
+      } else if (mode === "trending") {
+        // Jeux récents les plus populaires (proxy de "tendance", comme pour RAWG).
+        where += ` & first_release_date >= ${daysAgo(90)} & first_release_date <= ${now}`;
+      }
+      // all-time : popularité globale, sans filtre de date.
+
+      const results = await query(
+        `fields name,cover.url,first_release_date,platforms.name,genres.name; where ${where}; sort ${sort}; limit ${BROWSE_PAGE_SIZE}; offset ${offset};`
+      );
+      return results.map(mapGame);
     });
   },
 

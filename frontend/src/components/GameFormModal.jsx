@@ -50,9 +50,9 @@ export function GameFormModal({ game, onClose, onSaved, defaultStatus = "backlog
       .then((list) => {
         setProviders(list.filter((p) => p.configured));
         const firstConfigured = list.find((p) => p.configured);
-        setProvider(firstConfigured ? firstConfigured.id : "rawg");
+        setProvider(firstConfigured ? firstConfigured.id : "igdb");
       })
-      .catch(() => setProvider("rawg"));
+      .catch(() => setProvider("igdb"));
   }, []);
 
   function update(field, value) {

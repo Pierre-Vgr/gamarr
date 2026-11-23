@@ -7,8 +7,10 @@ web à Playnite. Mono-utilisateur, sans authentification, pensé pour un usage s
 ## Fonctionnalités
 
 - Ajout manuel de jeux ou recherche automatique des métadonnées (cover, description,
-  date de sortie, genres, plateformes) via [RAWG](https://rawg.io/apidocs).
-- Support optionnel d'[IGDB](https://api-docs.igdb.com/) comme source alternative.
+  date de sortie, genres, plateformes) via [IGDB](https://api-docs.igdb.com/), fournisseur
+  préféré par défaut (données et miniatures jugées plus pertinentes à l'usage).
+- Support de [RAWG](https://rawg.io/apidocs) comme source alternative (clé API plus
+  simple à obtenir, un seul champ, pas de compte développeur Twitch requis).
 - **Import depuis un dossier** : pointe l'app vers le dossier contenant tes jeux non
   installés, elle liste les éléments non encore importés et crée une entrée par jeu
   sélectionné (titre déduit du nom de fichier/dossier).
@@ -80,11 +82,13 @@ Copié depuis `secrets.json.example`, exclu de git par `.gitignore` — ne le co
 
 | Clé | Description | Obligatoire |
 |---|---|---|
-| `RAWG_API_KEY` | Clé API RAWG pour la recherche de métadonnées | Recommandé |
-| `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | Identifiants d'une app Twitch Developer pour activer IGDB | Optionnel |
+| `IGDB_CLIENT_ID` / `IGDB_CLIENT_SECRET` | Identifiants d'une app Twitch Developer — fournisseur préféré par défaut | Recommandé |
+| `RAWG_API_KEY` | Clé API RAWG (un seul champ, le plus rapide à obtenir) — source alternative | Optionnel |
 
 Sans clé API, l'ajout manuel de jeux reste pleinement fonctionnel ; seule la recherche
-automatique de métadonnées est désactivée.
+automatique de métadonnées est désactivée. Si les deux sont configurées, IGDB est
+utilisée par défaut (recherche, import, Découvrir) ; RAWG reste sélectionnable
+manuellement partout où un menu déroulant de fournisseur est proposé.
 
 ### Import depuis un dossier
 

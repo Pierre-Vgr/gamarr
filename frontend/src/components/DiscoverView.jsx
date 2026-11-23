@@ -33,7 +33,7 @@ export function DiscoverView() {
   const [steamTitles, setSteamTitles] = useState(null);
   const [libraryTitles, setLibraryTitles] = useState(null);
 
-  const canBrowse = provider === "rawg";
+  const canBrowse = provider === "rawg" || provider === "igdb";
 
   useEffect(() => {
     api
@@ -41,9 +41,9 @@ export function DiscoverView() {
       .then((list) => {
         setProviders(list.filter((p) => p.configured));
         const first = list.find((p) => p.configured);
-        setProvider(first ? first.id : "rawg");
+        setProvider(first ? first.id : "igdb");
       })
-      .catch(() => setProvider("rawg"));
+      .catch(() => setProvider("igdb"));
 
     // Signal informatif (pas bloquant, basé sur le titre comme pour Steam) : un jeu déjà
     // en bibliothèque, quel que soit son statut (wishlist, backlog...), évite de le
@@ -197,7 +197,7 @@ export function DiscoverView() {
 
       {!query.trim() && !canBrowse && (
         <p className="text-slate-400 text-sm mb-4">
-          Le parcours sans recherche n'est disponible que pour RAWG. Tape une recherche.
+          Le parcours sans recherche n'est pas disponible pour ce fournisseur. Tape une recherche.
         </p>
       )}
 

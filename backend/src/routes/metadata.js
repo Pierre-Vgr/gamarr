@@ -8,7 +8,7 @@ metadataRouter.get("/providers", (req, res) => {
 });
 
 metadataRouter.get("/search", async (req, res) => {
-  const { q, provider = "rawg", limit } = req.query;
+  const { q, provider = "igdb", limit } = req.query;
   if (!q) return res.status(400).json({ error: "q is required" });
 
   try {
@@ -20,7 +20,7 @@ metadataRouter.get("/search", async (req, res) => {
 });
 
 metadataRouter.get("/browse", async (req, res) => {
-  const { provider = "rawg", page = "1", mode = "all-time" } = req.query;
+  const { provider = "igdb", page = "1", mode = "all-time" } = req.query;
 
   try {
     const impl = getProvider(provider);

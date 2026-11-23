@@ -46,17 +46,17 @@ const SECTIONS = [
     ],
   },
   {
-    id: "rawg",
-    title: "RAWG",
-    fields: [{ key: "RAWG_API_KEY", label: "Clé API", type: "password" }],
-  },
-  {
     id: "igdb",
     title: "IGDB",
     fields: [
       { key: "IGDB_CLIENT_ID", label: "Client ID", type: "text" },
       { key: "IGDB_CLIENT_SECRET", label: "Client Secret", type: "password" },
     ],
+  },
+  {
+    id: "rawg",
+    title: "RAWG",
+    fields: [{ key: "RAWG_API_KEY", label: "Clé API", type: "password" }],
   },
   {
     id: "prowlarr",

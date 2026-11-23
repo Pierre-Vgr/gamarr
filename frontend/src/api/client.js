@@ -37,13 +37,13 @@ export const api = {
     request("/games/bulk/refresh-metadata", { method: "POST", body: JSON.stringify({ ids }) }),
 
   listProviders: () => request("/metadata/providers"),
-  searchMetadata: (q, provider = "rawg", limit) =>
+  searchMetadata: (q, provider = "igdb", limit) =>
     request(
       `/metadata/search?q=${encodeURIComponent(q)}&provider=${provider}${limit ? `&limit=${limit}` : ""}`
     ),
   getMetadataDetails: (provider, externalId) => request(`/metadata/${provider}/${externalId}`),
   getMedia: (provider, externalId) => request(`/metadata/${provider}/${externalId}/media`),
-  browseCatalog: (provider = "rawg", page = 1, mode = "all-time") =>
+  browseCatalog: (provider = "igdb", page = 1, mode = "all-time") =>
     request(`/metadata/browse?provider=${provider}&page=${page}&mode=${mode}`),
 
   scanImport: (path = "") => request(`/import/scan${path ? `?path=${encodeURIComponent(path)}` : ""}`),
