@@ -6,7 +6,7 @@ import { GameFormModal } from "./components/GameFormModal.jsx";
 import { ImportView } from "./components/ImportView.jsx";
 import { DiscoverView } from "./components/DiscoverView.jsx";
 import { ReleaseSearchModal } from "./components/ReleaseSearchModal.jsx";
-import { SettingsView } from "./components/SettingsView.jsx";
+import { SettingsView, SETTINGS_CATEGORIES } from "./components/SettingsView.jsx";
 import { HistoryView } from "./components/HistoryView.jsx";
 import { STATUS_OPTIONS } from "./components/StatusBadge.jsx";
 
@@ -56,8 +56,10 @@ export default function App() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkRefreshing, setBulkRefreshing] = useState(false);
   // Sous-menus (stores sous Bibliothèque, plateformes sous Roms, Découvrir sous
-  // Wishlist) dépliés par défaut ; repliables en cliquant sur leur menu parent.
-  const [expandedMenus, setExpandedMenus] = useState(new Set(["library", "roms", "wishlist"]));
+  // Wishlist, catégories sous Paramètres) dépliés par défaut ; repliables en cliquant
+  // sur leur menu parent.
+  const [expandedMenus, setExpandedMenus] = useState(new Set(["library", "roms", "wishlist", "settings"]));
+  const [settingsCategory, setSettingsCategory] = useState("general");
 
   const isGridView = view === "library" || view === "wishlist" || view === "roms";
 
@@ -239,7 +241,8 @@ export default function App() {
       <aside className="w-56 shrink-0 bg-slate-900 border-r border-slate-800 p-4 flex flex-col gap-1 sticky top-0 h-screen overflow-y-auto">
         <h1 className="text-xl font-bold mb-4 px-2">🎮 Gamarr</h1>
         {NAV_ITEMS.map((item) => {
-          const hasSubmenu = item.id === "library" || item.id === "roms" || item.id === "wishlist";
+          const hasSubmenu =
+            item.id === "library" || item.id === "roms" || item.id === "wishlist" || item.id === "settings";
           const expanded = expandedMenus.has(item.id);
           // Le menu parent replie/déplie son sous-menu ; accéder à son contenu se fait
           // toujours via un sous-élément ("Tout" inclus) pour ne pas avoir à deviner si
@@ -342,6 +345,26 @@ export default function App() {
                   </button>
                 </div>
               )}
+              {item.id === "settings" && expanded && (
+                <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
+                  {SETTINGS_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        goTo("settings");
+                        setSettingsCategory(cat.id);
+                      }}
+                      className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                        view === "settings" && settingsCategory === cat.id
+                          ? "bg-indigo-600 text-white"
+                          : "text-slate-500 hover:bg-slate-800 hover:text-white"
+                      }`}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -367,7 +390,7 @@ export default function App() {
         {view === "import" && <ImportView onImported={reload} />}
         {view === "discover" && <DiscoverView />}
         {view === "history" && <HistoryView />}
-        {view === "settings" && <SettingsView />}
+        {view === "settings" && <SettingsView category={settingsCategory} />}
 
         {isGridView && (
           <>

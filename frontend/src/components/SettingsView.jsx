@@ -26,7 +26,9 @@ function TestResultBadge({ result }) {
   );
 }
 
-const CATEGORIES = [
+// Exporté : la navigation entre catégories se fait depuis le sous-menu de la sidebar
+// (App.jsx), pas depuis un onglet dans la page elle-même.
+export const SETTINGS_CATEGORIES = [
   { id: "general", label: "Général" },
   { id: "metadata", label: "Métadonnées" },
   { id: "downloads", label: "Téléchargements" },
@@ -128,8 +130,7 @@ const SECTIONS = [
   },
 ];
 
-export function SettingsView() {
-  const [activeCategory, setActiveCategory] = useState("general");
+export function SettingsView({ category = "general" }) {
   const [form, setForm] = useState(null);
   const [providers, setProviders] = useState([]);
   const [prowlarr, setProwlarr] = useState(null);
@@ -240,7 +241,7 @@ export function SettingsView() {
 
   return (
     <div className="max-w-xl">
-      <h2 className="text-lg font-semibold mb-4">Intégrations</h2>
+      <h2 className="text-lg font-semibold mb-4">Vue d'ensemble</h2>
 
       {form?.firstRun && (
         <div className="bg-indigo-950 border border-indigo-800 rounded-lg p-4 mb-6">
@@ -268,28 +269,15 @@ export function SettingsView() {
         {qbittorrent && <StatusRow name="qBittorrent" configured={qbittorrent.configured} />}
       </div>
 
-      <div className="flex gap-1 mb-6 border-b border-slate-800">
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.id}
-            type="button"
-            onClick={() => setActiveCategory(cat.id)}
-            className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px ${
-              activeCategory === cat.id
-                ? "border-indigo-500 text-white"
-                : "border-transparent text-slate-400 hover:text-white"
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
+      <h3 className="text-lg font-semibold mb-4">
+        {SETTINGS_CATEGORIES.find((c) => c.id === category)?.label}
+      </h3>
 
       {!form ? (
         <p className="text-slate-400">Chargement...</p>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
-          {SECTIONS.filter((section) => section.category === activeCategory).map((section) => (
+          {SECTIONS.filter((section) => section.category === category).map((section) => (
             <div key={section.id} className="bg-slate-900 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold">{section.title}</h3>
