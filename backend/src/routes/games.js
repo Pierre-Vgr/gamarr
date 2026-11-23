@@ -64,20 +64,29 @@ gamesRouter.get("/facets", (req, res) => {
   // Séparées : "platforms" alimente le filtre de la Bibliothèque (jeux PC), "romPlatforms"
   // les sous-menus de la section Roms — sinon le filtre plateforme de la Bibliothèque
   // proposerait des consoles qui n'y apparaissent jamais (catégorie "games" uniquement).
+  // romPlatforms/stores comptent aussi les jeux concernés, affiché dans les sous-menus
+  // de la sidebar plutôt que de devoir cliquer pour le découvrir.
   const platforms = new Set();
-  const romPlatforms = new Set();
-  const stores = new Map(); // slug -> name, pour afficher un nom lisible (Steam, GOG...)
+  const romPlatforms = new Map(); // platform -> count
+  const stores = new Map(); // slug -> { name, count }
+  let gamesCount = 0;
+  let romsCount = 0;
 
   for (const r of rows) {
     if (r.source) sources.add(r.source);
     for (const g of JSON.parse(r.genres || "[]")) genres.add(g);
     for (const s of JSON.parse(r.stores || "[]")) {
-      if (s.slug) stores.set(s.slug, s.name || s.slug);
+      if (!s.slug) continue;
+      const entry = stores.get(s.slug) || { name: s.name || s.slug, count: 0 };
+      entry.count++;
+      stores.set(s.slug, entry);
     }
     const gamePlatforms = JSON.parse(r.platforms || "[]");
     if (isRomGame(r.platforms)) {
-      for (const p of gamePlatforms) romPlatforms.add(p);
+      romsCount++;
+      for (const p of gamePlatforms) romPlatforms.set(p, (romPlatforms.get(p) || 0) + 1);
     } else {
+      gamesCount++;
       for (const p of gamePlatforms) platforms.add(p);
     }
   }
@@ -86,10 +95,14 @@ gamesRouter.get("/facets", (req, res) => {
     sources: [...sources].sort(),
     genres: [...genres].sort(),
     platforms: [...platforms].sort(),
-    romPlatforms: [...romPlatforms].sort(),
+    romPlatforms: [...romPlatforms.entries()]
+      .map(([platform, count]) => ({ platform, count }))
+      .sort((a, b) => a.platform.localeCompare(b.platform)),
     stores: [...stores.entries()]
-      .map(([slug, name]) => ({ slug, name }))
+      .map(([slug, { name, count }]) => ({ slug, name, count }))
       .sort((a, b) => a.name.localeCompare(b.name)),
+    gamesCount,
+    romsCount,
   });
 });
 

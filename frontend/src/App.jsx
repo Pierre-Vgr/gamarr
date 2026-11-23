@@ -39,7 +39,15 @@ export default function App() {
   const [platform, setPlatform] = useState("");
   const [store, setStore] = useState("");
   const [sort, setSort] = useState("title");
-  const [facets, setFacets] = useState({ sources: [], genres: [], platforms: [], romPlatforms: [], stores: [] });
+  const [facets, setFacets] = useState({
+    sources: [],
+    genres: [],
+    platforms: [],
+    romPlatforms: [],
+    stores: [],
+    gamesCount: 0,
+    romsCount: 0,
+  });
   const [modalGame, setModalGame] = useState(undefined); // undefined = closed, null = new, object = edit
   const [detailGame, setDetailGame] = useState(null);
   const [releaseSearchGame, setReleaseSearchGame] = useState(null);
@@ -256,25 +264,27 @@ export default function App() {
                 <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
                   <button
                     onClick={() => goTo("library")}
-                    className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                    className={`flex items-center justify-between gap-2 text-left px-3 py-1.5 ml-3 rounded text-sm ${
                       view === "library" && store === ""
                         ? "bg-indigo-600 text-white"
                         : "text-slate-500 hover:bg-slate-800 hover:text-white"
                     }`}
                   >
-                    Tout
+                    <span>Tout</span>
+                    <span className="text-xs opacity-70">{facets.gamesCount}</span>
                   </button>
                   {facets.stores.map((s) => (
                     <button
                       key={s.slug}
                       onClick={() => goTo("library", { store: s.slug })}
-                      className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                      className={`flex items-center justify-between gap-2 text-left px-3 py-1.5 ml-3 rounded text-sm ${
                         view === "library" && store === s.slug
                           ? "bg-indigo-600 text-white"
                           : "text-slate-500 hover:bg-slate-800 hover:text-white"
                       }`}
                     >
-                      {s.name}
+                      <span>{s.name}</span>
+                      <span className="text-xs opacity-70">{s.count}</span>
                     </button>
                   ))}
                 </div>
@@ -283,25 +293,27 @@ export default function App() {
                 <div className="flex flex-col gap-0.5 mt-0.5 mb-1">
                   <button
                     onClick={() => goTo("roms")}
-                    className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                    className={`flex items-center justify-between gap-2 text-left px-3 py-1.5 ml-3 rounded text-sm ${
                       view === "roms" && platform === ""
                         ? "bg-indigo-600 text-white"
                         : "text-slate-500 hover:bg-slate-800 hover:text-white"
                     }`}
                   >
-                    Tout
+                    <span>Tout</span>
+                    <span className="text-xs opacity-70">{facets.romsCount}</span>
                   </button>
                   {facets.romPlatforms.map((p) => (
                     <button
-                      key={p}
-                      onClick={() => goTo("roms", { platform: p })}
-                      className={`text-left px-3 py-1.5 ml-3 rounded text-sm ${
-                        view === "roms" && platform === p
+                      key={p.platform}
+                      onClick={() => goTo("roms", { platform: p.platform })}
+                      className={`flex items-center justify-between gap-2 text-left px-3 py-1.5 ml-3 rounded text-sm ${
+                        view === "roms" && platform === p.platform
                           ? "bg-indigo-600 text-white"
                           : "text-slate-500 hover:bg-slate-800 hover:text-white"
                       }`}
                     >
-                      {p}
+                      <span>{p.platform}</span>
+                      <span className="text-xs opacity-70">{p.count}</span>
                     </button>
                   ))}
                 </div>
@@ -346,7 +358,7 @@ export default function App() {
                 onClick={() => setModalGame(null)}
                 className="px-4 py-2 rounded bg-indigo-600 hover:bg-indigo-500 font-medium"
               >
-                + Ajouter un jeu
+                {view === "wishlist" ? "+ Ajouter à la wishlist" : "+ Ajouter un jeu"}
               </button>
             </div>
           )}
@@ -489,11 +501,20 @@ export default function App() {
               <p className="text-slate-400">Chargement...</p>
             ) : games.length === 0 ? (
               <p className="text-slate-400">
-                {view === "wishlist"
-                  ? "Aucun jeu en wishlist."
-                  : view === "roms"
-                  ? "Aucune Rom dans la bibliothèque."
-                  : "Aucun jeu dans la bibliothèque pour le moment."}
+                {debouncedSearch ? (
+                  <>
+                    Aucun résultat pour « {debouncedSearch} ».{" "}
+                    <button onClick={() => setSearch("")} className="text-indigo-400 hover:underline">
+                      Effacer la recherche
+                    </button>
+                  </>
+                ) : view === "wishlist" ? (
+                  "Aucun jeu en wishlist."
+                ) : view === "roms" ? (
+                  "Aucune Rom dans la bibliothèque."
+                ) : (
+                  "Aucun jeu dans la bibliothèque pour le moment."
+                )}
               </p>
             ) : (
               <div className="grid grid-cols-[repeat(auto-fill,170px)] gap-4">
