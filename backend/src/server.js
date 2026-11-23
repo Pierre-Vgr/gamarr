@@ -13,6 +13,7 @@ import { historyRouter } from "./routes/history.js";
 import { steamRouter } from "./routes/steam.js";
 import { qbittorrentRouter } from "./routes/qbittorrent.js";
 import { processPendingHardlinks } from "./services/hardlink.js";
+import { processAutoSearch } from "./services/autoSearch.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -51,3 +52,11 @@ const HARDLINK_POLL_INTERVAL_MS = 60_000;
 setInterval(() => {
   processPendingHardlinks().catch((err) => console.error(`Hardlink poll failed: ${err.message}`));
 }, HARDLINK_POLL_INTERVAL_MS);
+
+// Recherche automatique des releases manquantes (voir services/autoSearch.js) —
+// désactivée par défaut (réglage AUTO_SEARCH_ENABLED), ne fait rien tant que Prowlarr
+// n'est pas configuré non plus.
+const AUTO_SEARCH_POLL_INTERVAL_MS = 6 * 60 * 60_000; // 6h
+setInterval(() => {
+  processAutoSearch().catch((err) => console.error(`Auto search poll failed: ${err.message}`));
+}, AUTO_SEARCH_POLL_INTERVAL_MS);

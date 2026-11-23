@@ -76,6 +76,11 @@ const SECTIONS = [
         type: "text",
         placeholder: "CPY, RELOADED (séparés par des virgules)",
       },
+      {
+        key: "AUTO_SEARCH_ENABLED",
+        label: "Rechercher et télécharger automatiquement les jeux manquants",
+        type: "checkbox",
+      },
     ],
   },
   {
@@ -254,18 +259,29 @@ export function SettingsView() {
                   </button>
                 </div>
               </div>
-              {section.fields.map((field) => (
-                <div key={field.key}>
-                  <label className="block text-sm text-slate-300 mb-1">{field.label}</label>
-                  <input
-                    type={field.type}
-                    className="w-full bg-slate-800 rounded px-3 py-2"
-                    value={form[field.key] || ""}
-                    onChange={(e) => update(field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                  />
-                </div>
-              ))}
+              {section.fields.map((field) =>
+                field.type === "checkbox" ? (
+                  <label key={field.key} className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form[field.key] === "true"}
+                      onChange={(e) => update(field.key, e.target.checked ? "true" : "false")}
+                    />
+                    {field.label}
+                  </label>
+                ) : (
+                  <div key={field.key}>
+                    <label className="block text-sm text-slate-300 mb-1">{field.label}</label>
+                    <input
+                      type={field.type}
+                      className="w-full bg-slate-800 rounded px-3 py-2"
+                      value={form[field.key] || ""}
+                      onChange={(e) => update(field.key, e.target.value)}
+                      placeholder={field.placeholder}
+                    />
+                  </div>
+                )
+              )}
 
               {section.id === "stockage" && (
                 <p className="text-xs text-slate-500">
@@ -358,6 +374,15 @@ export function SettingsView() {
                     Les releases bloquées sont exclues des résultats ; les préférées remontent en
                     tête de liste (marquées ★). Comparaison simple sur le titre de la release,
                     insensible à la casse.
+                  </p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Recherche automatique : toutes les 6h, relance une recherche pour chaque jeu
+                    "demandé" déjà sorti et grab automatiquement le meilleur résultat (préférences/
+                    blacklist ci-dessus appliquées). Un jeu déjà en téléchargement n'est jamais
+                    re-grabbé ; sans résultat ou en échec, nouvelle tentative au bout de 24h. Visible
+                    dans l'onglet Historique comme une recherche/un téléchargement manuel. Fonctionne
+                    mieux avec des préférences renseignées ci-dessus, sinon le meilleur résultat est
+                    choisi par nombre de seeders.
                   </p>
                 </div>
               )}
