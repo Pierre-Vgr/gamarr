@@ -108,6 +108,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ LIBRARY_SUBPATH: librarySubpath, DOWNLOADS_SUBPATH: downloadsSubpath }),
     }),
+  testDatabase: (dbFilename) =>
+    request("/settings/test/database", { method: "POST", body: JSON.stringify({ DB_FILENAME: dbFilename }) }),
 
   steamStatus: () => request("/steam/status"),
   getSteamLibrary: () => request("/steam/library"),

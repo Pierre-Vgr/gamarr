@@ -2,8 +2,23 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { CONFIG_DIR } from "../config/paths.js";
+import { getSecret } from "../config/secrets.js";
 
-const DB_PATH = path.join(CONFIG_DIR, "gamarr.db");
+export const DEFAULT_DB_FILENAME = "gamarr.db";
+
+// Le nom du fichier DB est configurable (Paramètres -> Général), mais lu une seule fois
+// ici au démarrage : contrairement aux chemins de bibliothèque/téléchargements, la
+// connexion SQLite est ouverte une fois pour toute la durée de vie du process (tous les
+// `db.prepare(...)` de l'app réutilisent cette même instance) — changer ce réglage ne
+// prend effet qu'au redémarrage du conteneur. path.basename() empêche de sortir de
+// CONFIG_DIR via un nom contenant des séparateurs de chemin.
+function dbFilename() {
+  const base = path.basename(getSecret("DB_FILENAME") || "");
+  return base && !base.startsWith(".") ? base : DEFAULT_DB_FILENAME;
+}
+
+export const ACTIVE_DB_FILENAME = dbFilename();
+const DB_PATH = path.join(CONFIG_DIR, ACTIVE_DB_FILENAME);
 
 fs.mkdirSync(CONFIG_DIR, { recursive: true });
 

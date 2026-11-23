@@ -26,9 +26,17 @@ function TestResultBadge({ result }) {
   );
 }
 
+const CATEGORIES = [
+  { id: "general", label: "Général" },
+  { id: "metadata", label: "Métadonnées" },
+  { id: "downloads", label: "Téléchargements" },
+  { id: "integrations", label: "Intégrations" },
+];
+
 const SECTIONS = [
   {
     id: "stockage",
+    category: "general",
     title: "Stockage",
     fields: [
       {
@@ -46,7 +54,21 @@ const SECTIONS = [
     ],
   },
   {
+    id: "database",
+    category: "general",
+    title: "Base de données",
+    fields: [
+      {
+        key: "DB_FILENAME",
+        label: "Fichier de base de données (relatif au montage /config)",
+        type: "text",
+        placeholder: "gamarr.db",
+      },
+    ],
+  },
+  {
     id: "igdb",
+    category: "metadata",
     title: "IGDB",
     fields: [
       { key: "IGDB_CLIENT_ID", label: "Client ID", type: "text" },
@@ -55,11 +77,13 @@ const SECTIONS = [
   },
   {
     id: "rawg",
+    category: "metadata",
     title: "RAWG",
     fields: [{ key: "RAWG_API_KEY", label: "Clé API", type: "password" }],
   },
   {
     id: "prowlarr",
+    category: "downloads",
     title: "Prowlarr",
     fields: [
       { key: "PROWLARR_URL", label: "URL", type: "text", placeholder: "https://..." },
@@ -84,15 +108,8 @@ const SECTIONS = [
     ],
   },
   {
-    id: "steam",
-    title: "Steam",
-    fields: [
-      { key: "STEAM_API_KEY", label: "Clé API", type: "password", placeholder: "steamcommunity.com/dev/apikey" },
-      { key: "STEAM_ID", label: "SteamID64", type: "text", placeholder: "76561198..." },
-    ],
-  },
-  {
     id: "qbittorrent",
+    category: "downloads",
     title: "qBittorrent",
     fields: [
       { key: "QBITTORRENT_URL", label: "URL du WebUI", type: "text", placeholder: "http://qbittorrent:8080" },
@@ -100,9 +117,19 @@ const SECTIONS = [
       { key: "QBITTORRENT_PASSWORD", label: "Mot de passe", type: "password" },
     ],
   },
+  {
+    id: "steam",
+    category: "integrations",
+    title: "Steam",
+    fields: [
+      { key: "STEAM_API_KEY", label: "Clé API", type: "password", placeholder: "steamcommunity.com/dev/apikey" },
+      { key: "STEAM_ID", label: "SteamID64", type: "text", placeholder: "76561198..." },
+    ],
+  },
 ];
 
 export function SettingsView() {
+  const [activeCategory, setActiveCategory] = useState("general");
   const [form, setForm] = useState(null);
   const [providers, setProviders] = useState([]);
   const [prowlarr, setProwlarr] = useState(null);
@@ -148,6 +175,8 @@ export function SettingsView() {
       let result;
       if (sectionId === "stockage") {
         result = await api.testStorage(form.LIBRARY_SUBPATH, form.DOWNLOADS_SUBPATH);
+      } else if (sectionId === "database") {
+        result = await api.testDatabase(form.DB_FILENAME);
       } else if (sectionId === "rawg") {
         result = await api.testRawg(form.RAWG_API_KEY);
       } else if (sectionId === "igdb") {
@@ -239,11 +268,28 @@ export function SettingsView() {
         {qbittorrent && <StatusRow name="qBittorrent" configured={qbittorrent.configured} />}
       </div>
 
+      <div className="flex gap-1 mb-6 border-b border-slate-800">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat.id}
+            type="button"
+            onClick={() => setActiveCategory(cat.id)}
+            className={`px-3 py-1.5 text-sm font-medium border-b-2 -mb-px ${
+              activeCategory === cat.id
+                ? "border-indigo-500 text-white"
+                : "border-transparent text-slate-400 hover:text-white"
+            }`}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
       {!form ? (
         <p className="text-slate-400">Chargement...</p>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
-          {SECTIONS.map((section) => (
+          {SECTIONS.filter((section) => section.category === activeCategory).map((section) => (
             <div key={section.id} className="bg-slate-900 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold">{section.title}</h3>
@@ -294,6 +340,17 @@ export function SettingsView() {
                   existe sur plusieurs plateformes (une version Game Boy Color et une version N64 du
                   même jeu, par exemple). Tout le reste est traité comme un jeu PC, selon la
                   métadonnée.
+                </p>
+              )}
+
+              {section.id === "database" && (
+                <p className="text-xs text-slate-500">
+                  Relatif au volume <code className="text-slate-400">/config</code>. Contrairement aux
+                  autres réglages, un changement ici ne prend effet qu'au redémarrage du conteneur
+                  (<code className="text-slate-400">docker compose up -d</code>) : la connexion à la
+                  base de données reste ouverte pendant toute la durée de vie du processus. Si le
+                  fichier n'existe pas encore, il est créé vide (nouvelle bibliothèque) au démarrage
+                  suivant.
                 </p>
               )}
 
@@ -404,7 +461,9 @@ export function SettingsView() {
       <p className="text-sm text-slate-500 mt-6">
         Ces valeurs sont stockées dans <code className="text-slate-400">config/secrets.json</code>{" "}
         (volume <code className="text-slate-400">/config</code>), prises en compte immédiatement sans
-        redémarrage. "Tester" vérifie les valeurs saisies ci-dessus, même avant d'enregistrer.
+        redémarrage — sauf le fichier de base de données (section "Base de données"), qui demande un
+        redémarrage du conteneur. "Tester" vérifie les valeurs saisies ci-dessus, même avant
+        d'enregistrer.
       </p>
     </div>
   );

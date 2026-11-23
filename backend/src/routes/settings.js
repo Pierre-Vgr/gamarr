@@ -7,8 +7,9 @@ import { testIgdbCredentials } from "../services/metadataProviders/igdb.js";
 import { testProwlarrConnection } from "../services/prowlarr.js";
 import { testSteamConnection } from "../services/steam.js";
 import { testQbittorrentConnection } from "../services/qbittorrent.js";
-import { DATA_DIR } from "../config/paths.js";
+import { DATA_DIR, CONFIG_DIR } from "../config/paths.js";
 import { DEFAULT_LIBRARY_SUBPATH, DEFAULT_DOWNLOADS_SUBPATH } from "../config/libraryPaths.js";
+import { DEFAULT_DB_FILENAME, ACTIVE_DB_FILENAME } from "../db/index.js";
 
 export const settingsRouter = Router();
 
@@ -29,12 +30,14 @@ const EDITABLE_FIELDS = [
   "LIBRARY_SUBPATH",
   "DOWNLOADS_SUBPATH",
   "AUTO_SEARCH_ENABLED",
+  "DB_FILENAME",
 ];
 
 const DEFAULTS = {
   LIBRARY_SUBPATH: DEFAULT_LIBRARY_SUBPATH,
   DOWNLOADS_SUBPATH: DEFAULT_DOWNLOADS_SUBPATH,
   AUTO_SEARCH_ENABLED: "false",
+  DB_FILENAME: DEFAULT_DB_FILENAME,
 };
 
 function withDefaults(secrets) {
@@ -134,4 +137,20 @@ settingsRouter.post("/test/storage", (req, res) => {
     });
   }
   res.json({ valid: true });
+});
+
+settingsRouter.post("/test/database", (req, res) => {
+  const requested = path.basename(req.body.DB_FILENAME || "") || DEFAULT_DB_FILENAME;
+  if (requested.startsWith(".")) {
+    return res.json({ valid: false, message: "Nom de fichier invalide" });
+  }
+
+  const current = requested === ACTIVE_DB_FILENAME ? " (fichier actuellement utilisé)" : "";
+  const fullPath = path.join(CONFIG_DIR, requested);
+
+  if (!fs.existsSync(fullPath)) {
+    return res.json({ valid: true, message: `${requested} sera créé au redémarrage${current}` });
+  }
+  const sizeKb = Math.round(fs.statSync(fullPath).size / 1024);
+  res.json({ valid: true, message: `${requested} existe déjà (${sizeKb} Ko)${current}` });
 });
